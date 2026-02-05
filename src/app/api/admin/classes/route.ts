@@ -12,8 +12,12 @@ export async function GET() {
 
     const classes = await prisma.class.findMany({
       orderBy: [{ school: { name: 'asc' } }, { name: 'asc' }],
-      include: {
-        school: { select: { id: true, name: true } },
+      select: {
+        id: true,
+        name: true,
+        commissionAmount: true,
+        isActive: true,
+        school: { select: { id: true, name: true, password: true } },
         package: { select: { id: true, name: true } },
         _count: { select: { orders: true } }
       }
@@ -37,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const { name, schoolId, packageId } = body
+    const { name, schoolId, packageId, commissionAmount } = body
 
     if (!name || !schoolId) {
       return NextResponse.json(
@@ -50,7 +54,8 @@ export async function POST(request: Request) {
       data: {
         name,
         schoolId,
-        packageId: packageId || null
+        packageId: packageId || null,
+        commissionAmount: commissionAmount || 0
       },
       include: {
         school: { select: { id: true, name: true } },

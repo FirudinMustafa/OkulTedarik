@@ -51,7 +51,12 @@ yarn-error.log*
 
 # Temp files
 nul
-cookies.txt
+cookies*.txt
+*cookies*.txt
+test-db.js
+
+# Claude Code
+.claude/
 
 # Local settings
 .local/

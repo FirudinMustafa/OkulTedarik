@@ -15,7 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Search, School, Copy, RefreshCw, AlertTriangle } from "lucide-react"
+import { Plus, Edit, Trash2, Search, School, AlertTriangle, Copy, RefreshCw, KeyRound, Mail } from "lucide-react"
 
 interface SchoolType {
   id: string
@@ -41,6 +41,7 @@ export default function OkullarPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [schoolToDelete, setSchoolToDelete] = useState<SchoolType | null>(null)
   const [editingSchool, setEditingSchool] = useState<SchoolType | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: "",
     address: "",
@@ -76,11 +77,17 @@ export default function OkullarPage() {
         ? `/api/admin/schools/${editingSchool.id}`
         : "/api/admin/schools"
 
+      // Duzenleme sirasinda bos sifre gonderme
+      const { directorPassword, ...restData } = formData
+      const payload = directorPassword.trim()
+        ? { ...restData, directorPassword }
+        : restData
+
       const res = await fetch(url, {
         method: editingSchool ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
-        body: JSON.stringify(formData)
+        body: JSON.stringify(payload)
       })
 
       if (res.ok) {
@@ -110,6 +117,7 @@ export default function OkullarPage() {
 
   const openDeleteDialog = (school: SchoolType) => {
     setSchoolToDelete(school)
+    setDeleteError(null)
     setDeleteDialogOpen(true)
   }
 
@@ -137,13 +145,17 @@ export default function OkullarPage() {
         method: "DELETE",
         credentials: 'include'
       })
+      const data = await res.json()
       if (res.ok) {
         fetchSchools()
+        setDeleteDialogOpen(false)
+        setSchoolToDelete(null)
+      } else {
+        setDeleteError(data.error || "Okul silinemedi")
       }
-      setDeleteDialogOpen(false)
-      setSchoolToDelete(null)
     } catch (error) {
       console.error("Silme hatasi:", error)
+      setDeleteError("Bir hata olustu. Lutfen tekrar deneyin.")
     }
   }
 
@@ -161,6 +173,10 @@ export default function OkullarPage() {
     }
   }
 
+  const copyPassword = (password: string) => {
+    navigator.clipboard.writeText(password)
+  }
+
   const regeneratePassword = async (id: string) => {
     try {
       const res = await fetch(`/api/admin/schools/${id}/regenerate-password`, {
@@ -173,10 +189,6 @@ export default function OkullarPage() {
     } catch (error) {
       console.error("Sifre yenileme hatasi:", error)
     }
-  }
-
-  const copyPassword = (password: string) => {
-    navigator.clipboard.writeText(password)
   }
 
   const resetForm = () => {
@@ -238,7 +250,7 @@ export default function OkullarPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Okul Adi</TableHead>
-                  <TableHead>Sifre</TableHead>
+                  <TableHead>Veli Sifresi</TableHead>
                   <TableHead>Mudur</TableHead>
                   <TableHead>Teslimat</TableHead>
                   <TableHead>Sinif</TableHead>
@@ -251,8 +263,8 @@ export default function OkullarPage() {
                   <TableRow key={school.id}>
                     <TableCell className="font-medium">{school.name}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <code className="bg-gray-100 px-2 py-1 rounded text-sm">
+                      <div className="flex items-center gap-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
                           {school.password}
                         </code>
                         <Button
@@ -275,7 +287,15 @@ export default function OkullarPage() {
                         </Button>
                       </div>
                     </TableCell>
-                    <TableCell>{school.directorName || "-"}</TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{school.directorName || "-"}</p>
+                        <p className="text-xs text-gray-500 flex items-center gap-1">
+                          <Mail className="h-3 w-3" />
+                          {school.directorEmail}
+                        </p>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {school.deliveryType === "CARGO" ? "Kargo" : "Okula"}
                     </TableCell>
@@ -397,19 +417,24 @@ export default function OkullarPage() {
                     />
                   </div>
                 </div>
-                {!editingSchool && (
-                  <div className="space-y-2 mt-4">
-                    <Label htmlFor="directorPassword">Sifre *</Label>
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="directorPassword">
+                    {editingSchool ? "Yeni Sifre (degistirmek icin doldurun)" : "Sifre *"}
+                  </Label>
+                  <div className="flex items-center gap-2">
                     <Input
                       id="directorPassword"
                       type="password"
                       value={formData.directorPassword}
                       onChange={(e) => setFormData({ ...formData, directorPassword: e.target.value })}
                       required={!editingSchool}
-                      placeholder="Mudur giris sifresi"
+                      placeholder={editingSchool ? "Bos birakirsaniz degismez" : "Mudur giris sifresi"}
                     />
+                    {editingSchool && (
+                      <KeyRound className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -436,6 +461,11 @@ export default function OkullarPage() {
             <p className="text-gray-600 mb-4">
               <strong>{schoolToDelete?.name}</strong> okulunu kaldirmak istiyorsunuz. Ne yapmak istediginizi secin:
             </p>
+            {deleteError && (
+              <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600 font-medium">{deleteError}</p>
+              </div>
+            )}
             <div className="space-y-3">
               <div className="p-3 border rounded-lg hover:bg-gray-50">
                 <p className="font-medium">Pasife Cek</p>

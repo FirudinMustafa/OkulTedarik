@@ -2,8 +2,15 @@ import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 import bcrypt from 'bcryptjs'
 
+if (!process.env.JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production')
+  }
+  console.warn('[AUTH] JWT_SECRET is not set. Using default development secret.')
+}
+
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'default-secret-change-in-production'
+  process.env.JWT_SECRET || 'dev-secret-do-not-use-in-production-change-me'
 )
 
 export interface JWTPayload {

@@ -32,7 +32,7 @@ export async function POST(
       return NextResponse.json({ error: 'Siparis bulunamadi' }, { status: 404 })
     }
 
-    if (order.status !== 'PAYMENT_RECEIVED' && order.status !== 'CONFIRMED') {
+    if (order.status !== 'PAID') {
       return NextResponse.json(
         { error: 'Bu siparis icin fatura kesilemez' },
         { status: 400 }
@@ -62,7 +62,7 @@ export async function POST(
     await prisma.order.update({
       where: { id },
       data: {
-        status: 'INVOICED',
+        status: 'PREPARING',
         invoiceNo: invoiceResult.invoiceNo,
         invoicePdfPath: invoiceResult.invoiceUrl,
         invoiceDate: new Date()

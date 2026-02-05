@@ -20,6 +20,7 @@ import { Plus, Edit, Trash2, Search, Users, AlertTriangle } from "lucide-react"
 interface ClassType {
   id: string
   name: string
+  commissionAmount: number | null
   school: { id: string; name: string }
   package: { id: string; name: string } | null
   isActive: boolean
@@ -46,6 +47,7 @@ export default function SiniflarPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [classToDelete, setClassToDelete] = useState<ClassType | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editingClass, setEditingClass] = useState<ClassType | null>(null)
   const [formData, setFormData] = useState({
     name: "",
@@ -118,6 +120,7 @@ export default function SiniflarPage() {
 
   const openDeleteDialog = (cls: ClassType) => {
     setClassToDelete(cls)
+    setDeleteError(null)
     setDeleteDialogOpen(true)
   }
 
@@ -145,13 +148,17 @@ export default function SiniflarPage() {
         method: "DELETE",
         credentials: 'include'
       })
+      const data = await res.json()
       if (res.ok) {
         fetchData()
+        setDeleteDialogOpen(false)
+        setClassToDelete(null)
+      } else {
+        setDeleteError(data.error || "Sinif silinemedi")
       }
-      setDeleteDialogOpen(false)
-      setClassToDelete(null)
     } catch (error) {
       console.error("Silme hatasi:", error)
+      setDeleteError("Bir hata olustu. Lutfen tekrar deneyin.")
     }
   }
 
@@ -367,6 +374,11 @@ export default function SiniflarPage() {
             <p className="text-gray-600 mb-4">
               <strong>{classToDelete?.name}</strong> sinifini kaldirmak istiyorsunuz. Ne yapmak istediginizi secin:
             </p>
+            {deleteError && (
+              <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600 font-medium">{deleteError}</p>
+              </div>
+            )}
             <div className="space-y-3">
               <div className="p-3 border rounded-lg hover:bg-gray-50">
                 <p className="font-medium">Pasife Cek</p>

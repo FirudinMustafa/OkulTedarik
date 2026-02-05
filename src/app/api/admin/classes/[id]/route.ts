@@ -95,19 +95,28 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Bagli siparisler var mi kontrol et
-    const orderCount = await prisma.order.count({
+    // Sinif bilgisini al
+    const classData = await prisma.class.findUnique({
+      where: { id }
+    })
+
+    if (!classData) {
+      return NextResponse.json({ error: 'Sinif bulunamadi' }, { status: 404 })
+    }
+
+    // Bagli verileri sirayla sil
+    // 1. Siparis iptal taleplerini sil
+    await prisma.cancelRequest.deleteMany({
+      where: { order: { classId: id } }
+    })
+
+    // 2. Siparisleri sil
+    await prisma.order.deleteMany({
       where: { classId: id }
     })
 
-    if (orderCount > 0) {
-      return NextResponse.json(
-        { error: 'Bu sinifa ait siparisler var. Sinif silinemez.' },
-        { status: 400 }
-      )
-    }
-
-    const classData = await prisma.class.delete({
+    // 3. Sinifi sil
+    await prisma.class.delete({
       where: { id }
     })
 

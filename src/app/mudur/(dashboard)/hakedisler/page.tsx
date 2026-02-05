@@ -6,6 +6,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import { DollarSign, CheckCircle, Clock } from "lucide-react"
+import { formatDateTime, formatNumber } from "@/lib/utils"
 
 interface Order {
   status: string
@@ -37,7 +38,7 @@ async function getSchoolPayments(schoolId: string) {
           orders: {
             where: {
               status: {
-                in: ['PAYMENT_RECEIVED', 'CONFIRMED', 'INVOICED', 'CARGO_SHIPPED', 'DELIVERED_TO_SCHOOL', 'DELIVERED_BY_CARGO', 'COMPLETED']
+                in: ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED']
               }
             }
           }
@@ -88,14 +89,6 @@ export default async function MudurHakedislerPage() {
     redirect('/mudur/login')
   }
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("tr-TR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric"
-    })
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -114,7 +107,7 @@ export default async function MudurHakedislerPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalRevenue.toLocaleString('tr-TR')} TL
+              {formatNumber(data.totalRevenue)} TL
             </div>
           </CardContent>
         </Card>
@@ -186,7 +179,7 @@ export default async function MudurHakedislerPage() {
                 {data.payments.map((payment: Payment) => (
                   <TableRow key={payment.id}>
                     <TableCell className="font-medium">
-                      {formatDate(payment.paymentDate)}
+                      {formatDateTime(payment.paymentDate)}
                     </TableCell>
                     <TableCell className="font-medium">
                       {Number(payment.amount).toFixed(2)} TL

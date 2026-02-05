@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getAdminSession } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const session = await getAdminSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Yetkisiz erisim' }, { status: 401 })
+    }
+
     // Get date ranges
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -24,7 +30,7 @@ export async function GET() {
     ] = await Promise.all([
       prisma.order.count(),
       prisma.order.count({
-        where: { status: { in: ['NEW', 'PAYMENT_PENDING', 'PAYMENT_RECEIVED', 'CONFIRMED', 'INVOICED'] } }
+        where: { status: { in: ['PAID', 'PREPARING'] } }
       }),
       prisma.order.count({
         where: { status: 'COMPLETED' }
@@ -43,26 +49,26 @@ export async function GET() {
     // Revenue calculations
     const [totalRevenue, monthlyRevenue, lastMonthRevenue, weeklyRevenue] = await Promise.all([
       prisma.order.aggregate({
-        where: { status: { in: ['PAYMENT_RECEIVED', 'CONFIRMED', 'INVOICED', 'CARGO_SHIPPED', 'DELIVERED_TO_SCHOOL', 'DELIVERED_BY_CARGO', 'COMPLETED'] } },
+        where: { status: { in: ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED'] } },
         _sum: { totalAmount: true }
       }),
       prisma.order.aggregate({
         where: {
-          status: { in: ['PAYMENT_RECEIVED', 'CONFIRMED', 'INVOICED', 'CARGO_SHIPPED', 'DELIVERED_TO_SCHOOL', 'DELIVERED_BY_CARGO', 'COMPLETED'] },
+          status: { in: ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED'] },
           createdAt: { gte: startOfMonth }
         },
         _sum: { totalAmount: true }
       }),
       prisma.order.aggregate({
         where: {
-          status: { in: ['PAYMENT_RECEIVED', 'CONFIRMED', 'INVOICED', 'CARGO_SHIPPED', 'DELIVERED_TO_SCHOOL', 'DELIVERED_BY_CARGO', 'COMPLETED'] },
+          status: { in: ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED'] },
           createdAt: { gte: startOfLastMonth, lte: endOfLastMonth }
         },
         _sum: { totalAmount: true }
       }),
       prisma.order.aggregate({
         where: {
-          status: { in: ['PAYMENT_RECEIVED', 'CONFIRMED', 'INVOICED', 'CARGO_SHIPPED', 'DELIVERED_TO_SCHOOL', 'DELIVERED_BY_CARGO', 'COMPLETED'] },
+          status: { in: ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED'] },
           createdAt: { gte: startOfWeek }
         },
         _sum: { totalAmount: true }
@@ -148,9 +154,9 @@ export async function GET() {
 
     // Delivery stats
     const deliveryStats = await Promise.all([
-      prisma.order.count({ where: { status: 'CARGO_SHIPPED' } }),
-      prisma.order.count({ where: { status: 'DELIVERED_TO_SCHOOL' } }),
-      prisma.order.count({ where: { status: 'DELIVERED_BY_CARGO' } })
+      prisma.order.count({ where: { status: 'SHIPPED' } }),
+      prisma.order.count({ where: { status: 'DELIVERED' } }),
+      prisma.order.count({ where: { status: 'COMPLETED' } })
     ])
 
     // Calculate growth
@@ -203,9 +209,9 @@ export async function GET() {
         createdAt: o.createdAt.toISOString()
       })),
       deliveryStats: {
-        inCargo: deliveryStats[0],
-        deliveredToSchool: deliveryStats[1],
-        deliveredByCargo: deliveryStats[2]
+        shipped: deliveryStats[0],
+        delivered: deliveryStats[1],
+        completed: deliveryStats[2]
       }
     })
   } catch (error) {

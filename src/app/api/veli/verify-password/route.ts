@@ -19,7 +19,7 @@ export async function POST(request: Request) {
                'unknown'
 
     // Rate limit kontrolu
-    const rateLimitResult = await checkRateLimit(ip, 5, 5) // 5 deneme, 5 dakika blok
+    const rateLimitResult = await checkRateLimit(ip, 10, 3) // 10 deneme, 3 dakika blok
     if (!rateLimitResult.allowed) {
       const waitMinutes = rateLimitResult.blockedUntil
         ? Math.ceil((rateLimitResult.blockedUntil.getTime() - Date.now()) / 60000)
@@ -30,15 +30,23 @@ export async function POST(request: Request) {
       )
     }
 
-    // Okul sifresini kontrol et
+    // OKUL sifresini kontrol et (okul bazli giris)
     const school = await prisma.school.findFirst({
       where: {
         password: password.toUpperCase(),
         isActive: true
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        deliveryType: true,
         classes: {
-          where: { isActive: true },
+          where: {
+            isActive: true,
+            package: {
+              isActive: true
+            }
+          },
           select: {
             id: true,
             name: true,
@@ -46,8 +54,18 @@ export async function POST(request: Request) {
               select: {
                 id: true,
                 name: true,
+                description: true,
+                note: true,
                 price: true,
-                isActive: true
+                items: {
+                  select: {
+                    id: true,
+                    name: true,
+                    quantity: true
+                    // Fiyat veliye gosterilmez
+                  },
+                  orderBy: { name: 'asc' }
+                }
               }
             }
           },
@@ -65,10 +83,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Aktif sinif var mi kontrol et
-    if (school.classes.length === 0) {
+    // Aktif sinif/paket var mi kontrol et
+    const classesWithPackages = school.classes.filter(c => c.package !== null)
+
+    if (classesWithPackages.length === 0) {
       return NextResponse.json(
-        { error: 'Bu okul icin henuz aktif sinif tanimlanmamis.' },
+        { error: 'Bu okul icin henuz aktif bir paket tanimlanmamis.' },
         { status: 404 }
       )
     }
@@ -76,23 +96,24 @@ export async function POST(request: Request) {
     // Basarili giris - rate limit sifirla
     await resetRateLimit(ip)
 
-    // Siniflari filtrele - paketi olan siniflari dondur
-    const classesWithPackage = school.classes.filter(
-      cls => cls.package && cls.package.isActive
-    ).map(cls => ({
-      id: cls.id,
-      name: cls.name,
-      packageId: cls.package!.id,
-      packageName: cls.package!.name,
-      packagePrice: cls.package!.price
-    }))
-
+    // Okul ve tum sinif/paket bilgilerini dondur
     return NextResponse.json({
       success: true,
       schoolId: school.id,
       schoolName: school.name,
       deliveryType: school.deliveryType,
-      classes: classesWithPackage
+      classes: classesWithPackages.map(cls => ({
+        id: cls.id,
+        name: cls.name,
+        package: cls.package ? {
+          id: cls.package.id,
+          name: cls.package.name,
+          description: cls.package.description,
+          note: cls.package.note,
+          price: cls.package.price,
+          items: cls.package.items
+        } : null
+      }))
     })
 
   } catch (error) {

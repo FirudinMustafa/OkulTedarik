@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSession } from '@/lib/auth'
 import { logAction } from '@/lib/logger'
+import { createInvoice } from '@/lib/kolaybi'
 import { createShipment } from '@/lib/aras-kargo'
 
 export async function POST(
@@ -20,7 +21,10 @@ export async function POST(
       where: { id },
       include: {
         class: {
-          include: { school: true }
+          include: {
+            school: true,
+            package: { include: { items: true } }
+          }
         }
       }
     })
@@ -37,19 +41,77 @@ export async function POST(
       )
     }
 
-    if (order.status !== 'INVOICED' && order.status !== 'CONFIRMED') {
+    if (!['PAID', 'PREPARING'].includes(order.status)) {
       return NextResponse.json(
         { error: 'Bu siparis icin kargo olusturulamaz' },
         { status: 400 }
       )
     }
 
-    // Mock kargo olustur
+    let autoInvoiced = false
+    let invoiceNo: string | null = order.invoiceNo
+
+    // OTOMATIK FATURA: Henuz faturalanmamis siparisler icin once fatura kes
+    if (order.status === 'PAID') {
+      const invoiceResult = await createInvoice({
+        orderNumber: order.orderNumber,
+        customerName: order.parentName,
+        customerEmail: order.email || undefined,
+        customerPhone: order.phone,
+        customerAddress: order.invoiceAddress || order.address || order.class.school.address || undefined,
+        isCorporate: order.isCorporateInvoice,
+        taxNumber: order.taxNumber || undefined,
+        taxOffice: order.taxOffice || undefined,
+        items: order.class.package?.items.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: Number(item.price),
+          totalPrice: Number(item.price) * item.quantity
+        })) || [],
+        totalAmount: Number(order.totalAmount)
+      })
+
+      if (!invoiceResult.success) {
+        return NextResponse.json(
+          { error: `Otomatik fatura olusturulamadi: ${invoiceResult.errorMessage}` },
+          { status: 500 }
+        )
+      }
+
+      invoiceNo = invoiceResult.invoiceNo || null
+      autoInvoiced = true
+
+      // Fatura bilgilerini kaydet
+      await prisma.order.update({
+        where: { id },
+        data: {
+          invoiceNo: invoiceResult.invoiceNo,
+          invoicePdfPath: invoiceResult.invoiceUrl,
+          invoiceDate: new Date(),
+          invoicedAt: new Date()
+        }
+      })
+
+      await logAction({
+        userId: session.id,
+        userType: 'ADMIN',
+        action: 'AUTO_INVOICE_CREATED',
+        entity: 'ORDER',
+        entityId: order.id,
+        details: {
+          orderNumber: order.orderNumber,
+          invoiceNo: invoiceResult.invoiceNo,
+          autoCreated: true
+        }
+      })
+    }
+
+    // Kargo olustur
     const shipmentResult = await createShipment({
       orderNumber: order.orderNumber,
       receiverName: order.parentName,
       receiverPhone: order.phone,
-      receiverAddress: order.address || '',
+      receiverAddress: order.deliveryAddress || order.address || '',
       packageCount: 1,
       packageWeight: 2, // varsayilan 2 kg
       packageContent: 'Okul Malzemeleri'
@@ -59,7 +121,7 @@ export async function POST(
     await prisma.order.update({
       where: { id },
       data: {
-        status: 'CARGO_SHIPPED',
+        status: 'SHIPPED',
         trackingNo: shipmentResult.trackingNo,
         shippedAt: new Date()
       }
@@ -80,7 +142,9 @@ export async function POST(
     return NextResponse.json({
       success: true,
       trackingNo: shipmentResult.trackingNo,
-      trackingUrl: shipmentResult.trackingUrl
+      trackingUrl: shipmentResult.trackingUrl,
+      autoInvoiced,
+      invoiceNo: invoiceNo || undefined
     })
   } catch (error) {
     console.error('Kargo olusturulamadi:', error)

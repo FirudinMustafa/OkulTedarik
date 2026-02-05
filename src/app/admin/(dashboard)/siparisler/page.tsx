@@ -14,7 +14,16 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, ShoppingCart, Eye, FileText, Truck } from "lucide-react"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
+} from "@/components/ui/alert-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Search, ShoppingCart, Eye, FileText, Truck, X,
+  CheckCircle, CheckCheck, RefreshCw, Loader2
+} from "lucide-react"
+import { formatDateTime } from "@/lib/utils"
 
 interface OrderType {
   id: string
@@ -25,6 +34,7 @@ interface OrderType {
   parentEmail: string | null
   deliveryType: string
   deliveryAddress: string | null
+  trackingNo: string | null
   totalAmount: number
   status: string
   paymentMethod: string | null
@@ -36,31 +46,21 @@ interface OrderType {
 }
 
 const statusLabels: Record<string, string> = {
-  NEW: "Yeni",
-  PAYMENT_PENDING: "Odeme Bekleniyor",
-  PAYMENT_RECEIVED: "Odeme Alindi",
-  CONFIRMED: "Onaylandi",
-  INVOICED: "Faturalandi",
-  CARGO_SHIPPED: "Kargoda",
-  DELIVERED_TO_SCHOOL: "Okula Teslim",
-  DELIVERED_BY_CARGO: "Teslim Edildi",
-  COMPLETED: "Tamamlandi",
-  CANCELLED: "Iptal",
-  REFUNDED: "Iade"
+  PAID: "Ödendi",
+  PREPARING: "Hazırlanıyor",
+  SHIPPED: "Kargoda",
+  DELIVERED: "Teslim Edildi",
+  COMPLETED: "Tamamlandı",
+  CANCELLED: "İptal Edildi"
 }
 
 const statusColors: Record<string, string> = {
-  NEW: "bg-blue-100 text-blue-800",
-  PAYMENT_PENDING: "bg-yellow-100 text-yellow-800",
-  PAYMENT_RECEIVED: "bg-green-100 text-green-800",
-  CONFIRMED: "bg-purple-100 text-purple-800",
-  INVOICED: "bg-indigo-100 text-indigo-800",
-  CARGO_SHIPPED: "bg-orange-100 text-orange-800",
-  DELIVERED_TO_SCHOOL: "bg-teal-100 text-teal-800",
-  DELIVERED_BY_CARGO: "bg-emerald-100 text-emerald-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
-  REFUNDED: "bg-gray-100 text-gray-800"
+  PAID: "bg-blue-100 text-blue-800",
+  PREPARING: "bg-amber-100 text-amber-800",
+  SHIPPED: "bg-purple-100 text-purple-800",
+  DELIVERED: "bg-green-100 text-green-800",
+  COMPLETED: "bg-emerald-100 text-emerald-800",
+  CANCELLED: "bg-red-100 text-red-800"
 }
 
 export default function SiparislerPage() {
@@ -73,9 +73,17 @@ export default function SiparislerPage() {
   const [selectedOrder, setSelectedOrder] = useState<OrderType | null>(null)
   const [newStatus, setNewStatus] = useState("")
 
-  useEffect(() => {
-    fetchOrders()
-  }, [])
+  // Toplu islem
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const [bulkAction, setBulkAction] = useState<string | null>(null)
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkResult, setBulkResult] = useState<{ message: string; success: number; failed: number } | null>(null)
+
+  const [processingId, setProcessingId] = useState<string | null>(null)
+  const [syncLoading, setSyncLoading] = useState(false)
+
+  useEffect(() => { fetchOrders() }, [])
 
   const fetchOrders = async () => {
     try {
@@ -89,9 +97,131 @@ export default function SiparislerPage() {
     }
   }
 
+  // --- TEKIL ISLEMLER ---
+
+  const prepareOrder = async (orderId: string) => {
+    setProcessingId(orderId)
+    try {
+      await fetch(`/api/admin/orders/${orderId}/invoice`, {
+        method: "POST",
+        credentials: 'include'
+      })
+      fetchOrders()
+    } finally { setProcessingId(null) }
+  }
+
+  const createInvoice = async (orderId: string) => {
+    setProcessingId(orderId)
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/invoice`, {
+        method: "POST", credentials: 'include'
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        alert(data.error || "Fatura olusturulamadi")
+      }
+      fetchOrders()
+    } finally { setProcessingId(null) }
+  }
+
+  const createShipment = async (orderId: string) => {
+    setProcessingId(orderId)
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/shipment`, {
+        method: "POST", credentials: 'include'
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        alert(data.error || "Kargo olusturulamadi")
+      }
+      fetchOrders()
+    } finally { setProcessingId(null) }
+  }
+
+  const markDelivered = async (orderId: string) => {
+    setProcessingId(orderId)
+    try {
+      await fetch('/api/admin/deliveries/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ orderIds: [orderId], action: 'DELIVERED' })
+      })
+      fetchOrders()
+    } finally { setProcessingId(null) }
+  }
+
+  const markCompleted = async (orderId: string) => {
+    setProcessingId(orderId)
+    try {
+      await fetch('/api/admin/deliveries/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ orderIds: [orderId], action: 'COMPLETED' })
+      })
+      fetchOrders()
+    } finally { setProcessingId(null) }
+  }
+
+  // --- TOPLU ISLEMLER ---
+
+  const handleBulkAction = async () => {
+    if (!bulkAction) return
+    setBulkLoading(true)
+    setBulkResult(null)
+    const ids = Array.from(selectedOrders)
+
+    try {
+      let res: Response
+
+      if (bulkAction === 'invoice') {
+        res = await fetch('/api/admin/orders/batch/invoices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ orderIds: ids })
+        })
+        const data = await res.json()
+        setBulkResult({ message: data.message || 'Tamamlandi', success: data.summary?.success || 0, failed: data.summary?.failed || 0 })
+      } else if (bulkAction === 'shipment') {
+        res = await fetch('/api/admin/orders/batch/shipments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ orderIds: ids })
+        })
+        const data = await res.json()
+        setBulkResult({ message: data.message || 'Tamamlandi', success: data.summary?.success || 0, failed: data.summary?.failed || 0 })
+      } else if (bulkAction === 'deliver') {
+        res = await fetch('/api/admin/deliveries/batch', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ orderIds: ids, action: 'DELIVERED' })
+        })
+        const data = await res.json()
+        setBulkResult({ message: data.message || 'Tamamlandi', success: data.summary?.success || 0, failed: data.summary?.failed || 0 })
+      } else if (bulkAction === 'complete') {
+        res = await fetch('/api/admin/deliveries/batch', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+          body: JSON.stringify({ orderIds: ids, action: 'COMPLETED' })
+        })
+        const data = await res.json()
+        setBulkResult({ message: data.message || 'Tamamlandi', success: data.summary?.success || 0, failed: data.summary?.failed || 0 })
+      }
+
+      fetchOrders()
+      setSelectedOrders(new Set())
+    } catch (error) {
+      console.error("Toplu islem hatasi:", error)
+      setBulkResult({ message: 'Bir hata olustu', success: 0, failed: ids.length })
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  // Manuel durum degistirme
   const handleStatusChange = async () => {
     if (!selectedOrder || !newStatus) return
-
     try {
       const res = await fetch(`/api/admin/orders/${selectedOrder.id}/status`, {
         method: "PUT",
@@ -99,57 +229,38 @@ export default function SiparislerPage() {
         credentials: 'include',
         body: JSON.stringify({ status: newStatus })
       })
-
-      if (res.ok) {
-        fetchOrders()
-        setStatusDialogOpen(false)
-        setNewStatus("")
-      }
+      if (res.ok) { fetchOrders(); setStatusDialogOpen(false); setNewStatus("") }
     } catch (error) {
       console.error("Durum guncelleme hatasi:", error)
     }
   }
 
-  const createInvoice = async (orderId: string) => {
+  // Kargo senkronizasyonu
+  const handleSyncCargo = async () => {
+    setSyncLoading(true)
     try {
-      const res = await fetch(`/api/admin/orders/${orderId}/invoice`, {
-        method: "POST",
-        credentials: 'include'
+      const res = await fetch('/api/admin/deliveries/sync-cargo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', body: JSON.stringify({})
       })
-
-      if (res.ok) {
+      const data = await res.json()
+      if (data.success) {
+        alert(`${data.summary.total} kargo sorgulandı, ${data.summary.updated} güncellendi`)
         fetchOrders()
-        alert("Fatura olusturuldu (Mock)")
       }
-    } catch (error) {
-      console.error("Fatura olusturma hatasi:", error)
-    }
+    } catch (error) { console.error('Kargo sync hatasi:', error) }
+    finally { setSyncLoading(false) }
   }
 
-  const createShipment = async (orderId: string) => {
-    try {
-      const res = await fetch(`/api/admin/orders/${orderId}/shipment`, {
-        method: "POST",
-        credentials: 'include'
-      })
-
-      if (res.ok) {
-        fetchOrders()
-        alert("Kargo olusturuldu (Mock)")
-      }
-    } catch (error) {
-      console.error("Kargo olusturma hatasi:", error)
-    }
+  // Secim
+  const toggleSelectAll = () => {
+    if (selectedOrders.size === filteredOrders.length) setSelectedOrders(new Set())
+    else setSelectedOrders(new Set(filteredOrders.map(o => o.id)))
   }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("tr-TR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    })
+  const toggleSelectOrder = (orderId: string) => {
+    const s = new Set(selectedOrders)
+    if (s.has(orderId)) s.delete(orderId); else s.add(orderId)
+    setSelectedOrders(s)
   }
 
   const filteredOrders = orders.filter(o => {
@@ -157,10 +268,68 @@ export default function SiparislerPage() {
       o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       o.parentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      o.class.school.name.toLowerCase().includes(searchTerm.toLowerCase())
+      o.class.school.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (o.trackingNo?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false)
     const matchesStatus = !filterStatus || o.status === filterStatus
     return matchesSearch && matchesStatus
   })
+
+  const bulkLabels: Record<string, string> = {
+    invoice: 'Toplu Hazirla',
+    shipment: 'Toplu Kargo',
+    deliver: 'Toplu Teslim',
+    complete: 'Toplu Tamamla'
+  }
+
+  // Siparisin durumuna gore gosterilecek butonlar
+  const renderActions = (order: OrderType) => {
+    const isProcessing = processingId === order.id
+    const isCargo = order.deliveryType === "CARGO"
+
+    if (isProcessing) {
+      return <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+    }
+
+    switch (order.status) {
+      case "PAID":
+        return (
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => prepareOrder(order.id)}>
+              <FileText className="h-3 w-3 mr-1" />Hazirla
+            </Button>
+            {isCargo && (
+              <Button size="sm" className="text-xs h-7 bg-orange-500 hover:bg-orange-600 text-white" onClick={() => createShipment(order.id)}>
+                <Truck className="h-3 w-3 mr-1" />Kargola
+              </Button>
+            )}
+          </div>
+        )
+      case "PREPARING":
+        return isCargo ? (
+          <Button size="sm" className="text-xs h-7 bg-orange-500 hover:bg-orange-600 text-white" onClick={() => createShipment(order.id)}>
+            <Truck className="h-3 w-3 mr-1" />Kargola
+          </Button>
+        ) : (
+          <Button size="sm" className="text-xs h-7 bg-teal-500 hover:bg-teal-600 text-white" onClick={() => markDelivered(order.id)}>
+            <CheckCircle className="h-3 w-3 mr-1" />Teslim Et
+          </Button>
+        )
+      case "SHIPPED":
+        return (
+          <Button size="sm" className="text-xs h-7 bg-teal-500 hover:bg-teal-600 text-white" onClick={() => markDelivered(order.id)}>
+            <CheckCircle className="h-3 w-3 mr-1" />Teslim Edildi
+          </Button>
+        )
+      case "DELIVERED":
+        return (
+          <Button size="sm" className="text-xs h-7 bg-green-500 hover:bg-green-600 text-white" onClick={() => markCompleted(order.id)}>
+            <CheckCheck className="h-3 w-3 mr-1" />Tamamla
+          </Button>
+        )
+      default:
+        return null
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -169,6 +338,10 @@ export default function SiparislerPage() {
           <h1 className="text-2xl font-bold text-gray-900">Siparisler</h1>
           <p className="text-gray-500">Siparis yonetimi ve takibi</p>
         </div>
+        <Button variant="outline" onClick={handleSyncCargo} disabled={syncLoading}>
+          {syncLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          Kargo Durumlarini Sorgula
+        </Button>
       </div>
 
       <Card>
@@ -177,7 +350,7 @@ export default function SiparislerPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Siparis no, ogrenci, veli veya okul ara..."
+                placeholder="Siparis no, ogrenci, veli, okul veya takip no ara..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -195,6 +368,35 @@ export default function SiparislerPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Toplu Islem Cubugu */}
+          {selectedOrders.size > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <span className="text-sm font-medium text-blue-800">
+                {selectedOrders.size} siparis secildi
+              </span>
+              <div className="flex-1" />
+              {(['invoice', 'shipment', 'deliver', 'complete'] as const).map((action) => (
+                <Button
+                  key={action}
+                  size="sm"
+                  variant="outline"
+                  className="text-xs"
+                  onClick={() => { setBulkAction(action); setBulkDialogOpen(true); setBulkResult(null) }}
+                  disabled={bulkLoading}
+                >
+                  {action === 'invoice' && <FileText className="h-3 w-3 mr-1" />}
+                  {action === 'shipment' && <Truck className="h-3 w-3 mr-1" />}
+                  {action === 'deliver' && <CheckCircle className="h-3 w-3 mr-1" />}
+                  {action === 'complete' && <CheckCheck className="h-3 w-3 mr-1" />}
+                  {bulkLabels[action]}
+                </Button>
+              ))}
+              <Button size="sm" variant="ghost" onClick={() => setSelectedOrders(new Set())} className="text-gray-500">
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -208,6 +410,12 @@ export default function SiparislerPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={selectedOrders.size === filteredOrders.length && filteredOrders.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
                   <TableHead>Siparis No</TableHead>
                   <TableHead>Ogrenci</TableHead>
                   <TableHead>Okul / Sinif</TableHead>
@@ -215,15 +423,19 @@ export default function SiparislerPage() {
                   <TableHead>Teslimat</TableHead>
                   <TableHead>Durum</TableHead>
                   <TableHead>Tarih</TableHead>
-                  <TableHead className="text-right">Islemler</TableHead>
+                  <TableHead>Islemler</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredOrders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell className="font-mono text-sm">
-                      {order.orderNumber}
+                  <TableRow key={order.id} className={selectedOrders.has(order.id) ? "bg-blue-50" : ""}>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedOrders.has(order.id)}
+                        onCheckedChange={() => toggleSelectOrder(order.id)}
+                      />
                     </TableCell>
+                    <TableCell className="font-mono text-sm">{order.orderNumber}</TableCell>
                     <TableCell>
                       <div>
                         <p className="font-medium">{order.studentName}</p>
@@ -236,58 +448,33 @@ export default function SiparislerPage() {
                         <p className="text-sm text-gray-500">{order.class.name}</p>
                       </div>
                     </TableCell>
-                    <TableCell className="font-medium">
-                      {Number(order.totalAmount).toFixed(2)} TL
-                    </TableCell>
+                    <TableCell className="font-medium">{Number(order.totalAmount).toFixed(2)} TL</TableCell>
                     <TableCell>
-                      {order.deliveryType === "CARGO" ? "Kargo" : "Okula Teslim"}
+                      <div>
+                        <span className="text-sm">{order.deliveryType === "CARGO" ? "Kargo" : "Okula Teslim"}</span>
+                        {order.trackingNo && (
+                          <p className="text-xs text-orange-600 font-mono mt-0.5">{order.trackingNo}</p>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge
                         className={`cursor-pointer ${statusColors[order.status] || ""}`}
-                        onClick={() => {
-                          setSelectedOrder(order)
-                          setNewStatus(order.status)
-                          setStatusDialogOpen(true)
-                        }}
+                        onClick={() => { setSelectedOrder(order); setNewStatus(order.status); setStatusDialogOpen(true) }}
                       >
                         {statusLabels[order.status] || order.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-sm text-gray-500">
-                      {formatDate(order.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          setSelectedOrder(order)
-                          setDetailDialogOpen(true)
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {order.status === "PAYMENT_RECEIVED" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => createInvoice(order.id)}
-                          title="Fatura Olustur"
+                    <TableCell className="text-sm text-gray-500">{formatDateTime(order.createdAt)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7"
+                          onClick={() => { setSelectedOrder(order); setDetailDialogOpen(true) }}
                         >
-                          <FileText className="h-4 w-4 text-blue-500" />
+                          <Eye className="h-4 w-4" />
                         </Button>
-                      )}
-                      {order.status === "INVOICED" && order.deliveryType === "CARGO" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => createShipment(order.id)}
-                          title="Kargo Olustur"
-                        >
-                          <Truck className="h-4 w-4 text-orange-500" />
-                        </Button>
-                      )}
+                        {renderActions(order)}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -325,37 +512,24 @@ export default function SiparislerPage() {
                   </div>
                 </div>
               </div>
-
               <div className="border-t pt-4">
                 <h4 className="font-medium text-gray-900 mb-3">Teslimat Bilgileri</h4>
                 <div className="text-sm space-y-1">
-                  <p>
-                    <span className="text-gray-500">Teslimat Tipi:</span>{" "}
-                    {selectedOrder.deliveryType === "CARGO" ? "Kargo ile Teslimat" : "Okula Teslim"}
-                  </p>
+                  <p><span className="text-gray-500">Teslimat Tipi:</span> {selectedOrder.deliveryType === "CARGO" ? "Kargo" : "Okula Teslim"}</p>
                   {selectedOrder.deliveryAddress && (
                     <p><span className="text-gray-500">Adres:</span> {selectedOrder.deliveryAddress}</p>
                   )}
+                  {selectedOrder.trackingNo && (
+                    <p><span className="text-gray-500">Takip No:</span> <span className="font-mono">{selectedOrder.trackingNo}</span></p>
+                  )}
                 </div>
               </div>
-
               <div className="border-t pt-4">
                 <h4 className="font-medium text-gray-900 mb-3">Odeme Bilgileri</h4>
                 <div className="text-sm space-y-1">
-                  <p>
-                    <span className="text-gray-500">Tutar:</span>{" "}
-                    <span className="font-medium">{Number(selectedOrder.totalAmount).toFixed(2)} TL</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Odeme Yontemi:</span>{" "}
-                    {selectedOrder.paymentMethod === "CREDIT_CARD" ? "Kredi Karti" : selectedOrder.paymentMethod || "-"}
-                  </p>
-                  <p>
-                    <span className="text-gray-500">Durum:</span>{" "}
-                    <Badge className={statusColors[selectedOrder.status] || ""}>
-                      {statusLabels[selectedOrder.status] || selectedOrder.status}
-                    </Badge>
-                  </p>
+                  <p><span className="text-gray-500">Tutar:</span> <span className="font-medium">{Number(selectedOrder.totalAmount).toFixed(2)} TL</span></p>
+                  <p><span className="text-gray-500">Odeme:</span> {selectedOrder.paymentMethod === "CREDIT_CARD" ? "Kredi Karti" : selectedOrder.paymentMethod === "CASH_ON_DELIVERY" ? "Kapida Odeme" : selectedOrder.paymentMethod || "-"}</p>
+                  <p><span className="text-gray-500">Durum:</span> <Badge className={statusColors[selectedOrder.status] || ""}>{statusLabels[selectedOrder.status] || selectedOrder.status}</Badge></p>
                 </div>
               </div>
             </div>
@@ -363,20 +537,14 @@ export default function SiparislerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Durum Degistirme Dialog */}
+      {/* Manuel Durum Degistirme */}
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Siparis Durumu Degistir</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Siparis Durumu Degistir</DialogTitle></DialogHeader>
           <div className="py-4">
-            <p className="text-sm text-gray-500 mb-4">
-              Siparis: <span className="font-mono">{selectedOrder?.orderNumber}</span>
-            </p>
+            <p className="text-sm text-gray-500 mb-4">Siparis: <span className="font-mono">{selectedOrder?.orderNumber}</span></p>
             <Select value={newStatus} onValueChange={setNewStatus}>
-              <SelectTrigger>
-                <SelectValue placeholder="Yeni durum secin" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Yeni durum secin" /></SelectTrigger>
               <SelectContent>
                 {Object.entries(statusLabels).map(([key, label]) => (
                   <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -385,15 +553,57 @@ export default function SiparislerPage() {
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>
-              Iptal
-            </Button>
-            <Button onClick={handleStatusChange}>
-              Guncelle
-            </Button>
+            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Iptal</Button>
+            <Button onClick={handleStatusChange}>Guncelle</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Toplu Islem Dialog */}
+      <AlertDialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{bulkAction ? bulkLabels[bulkAction] : ''}</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                {bulkResult ? (
+                  <div className={`p-3 rounded-lg ${bulkResult.failed > 0 ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
+                    <p className={bulkResult.failed > 0 ? 'text-yellow-800' : 'text-green-800'}>{bulkResult.message}</p>
+                    <div className="mt-2 text-sm">
+                      <span className="text-green-600">Basarili: {bulkResult.success}</span>
+                      {bulkResult.failed > 0 && <span className="text-red-600 ml-3">Hatali: {bulkResult.failed}</span>}
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p><span className="font-semibold">{selectedOrders.size}</span> siparis icin islem yapilacak.</p>
+                    {bulkAction === 'shipment' && (
+                      <p className="text-amber-600 bg-amber-50 p-2 rounded text-sm mt-2">
+                        Not: Faturalanmamis siparisler icin otomatik fatura kesilecektir.
+                      </p>
+                    )}
+                    <p className="text-gray-500 text-sm mt-2">
+                      Uygun olmayan durumdaki siparisler atlanacaktir.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {bulkResult ? (
+              <AlertDialogAction onClick={() => setBulkDialogOpen(false)}>Tamam</AlertDialogAction>
+            ) : (
+              <>
+                <AlertDialogCancel disabled={bulkLoading}>Iptal</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkAction} disabled={bulkLoading}>
+                  {bulkLoading ? 'Isleniyor...' : 'Onayla'}
+                </AlertDialogAction>
+              </>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

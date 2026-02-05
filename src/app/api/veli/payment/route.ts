@@ -6,11 +6,12 @@ import { sendSMS } from '@/lib/sms'
 
 export async function POST(request: Request) {
   try {
-    const { orderId, cardNumber, cardHolder, expiry, cvv } = await request.json()
+    const body = await request.json()
+    const { orderId, mockPayment, cardNumber, cardHolder, expiry, cvv } = body
 
-    if (!orderId || !cardNumber || !cardHolder || !expiry || !cvv) {
+    if (!orderId) {
       return NextResponse.json(
-        { error: 'Tum kart bilgileri gerekli' },
+        { error: 'Siparis ID gerekli' },
         { status: 400 }
       )
     }
@@ -32,62 +33,82 @@ export async function POST(request: Request) {
       )
     }
 
-    if (order.status !== 'PAYMENT_PENDING') {
+    if (order.status !== 'PAID' || order.paymentId) {
       return NextResponse.json(
         { error: 'Bu siparis icin odeme yapilamaz' },
         { status: 400 }
       )
     }
 
-    // Mock odeme islemi
-    const paymentResult = await processPayment({
-      amount: Number(order.totalAmount),
-      currency: 'TRY',
-      cardNumber,
-      cardHolder,
-      expiry,
-      cvv,
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      buyerName: order.parentName,
-      buyerEmail: order.email || '',
-      buyerPhone: order.phone
-    })
+    let paymentId: string
 
-    if (!paymentResult.success) {
-      return NextResponse.json(
-        { error: paymentResult.errorMessage || 'Odeme islemi basarisiz' },
-        { status: 400 }
-      )
+    if (mockPayment) {
+      // Mock odeme - gercek kart bilgisi gerektirmez
+      paymentId = `MOCK_PAY_${Date.now()}`
+    } else {
+      // Gercek odeme islemi
+      if (!cardNumber || !cardHolder || !expiry || !cvv) {
+        return NextResponse.json(
+          { error: 'Tum kart bilgileri gerekli' },
+          { status: 400 }
+        )
+      }
+
+      const paymentResult = await processPayment({
+        amount: Number(order.totalAmount),
+        currency: 'TRY',
+        cardNumber,
+        cardHolder,
+        expiry,
+        cvv,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        buyerName: order.parentName,
+        buyerEmail: order.email || '',
+        buyerPhone: order.phone
+      })
+
+      if (!paymentResult.success) {
+        return NextResponse.json(
+          { error: paymentResult.errorMessage || 'Odeme islemi basarisiz' },
+          { status: 400 }
+        )
+      }
+
+      paymentId = paymentResult.paymentId || `PAY_${Date.now()}`
     }
 
     // Siparis durumunu guncelle
     await prisma.order.update({
       where: { id: orderId },
       data: {
-        status: 'PAYMENT_RECEIVED',
-        paymentId: paymentResult.paymentId,
+        status: 'PAID',
+        paymentId,
         paymentMethod: 'CREDIT_CARD',
         paidAt: new Date()
       }
     })
 
     // Bildirimler gonder (mock)
-    await Promise.all([
-      sendEmail({
-        to: order.email || '',
-        subject: `Siparis Onayi - ${order.orderNumber}`,
-        body: `Sayin ${order.parentName}, ${order.orderNumber} numarali siparisini aldik. Odemeniz basariyla tamamlandi.`
-      }),
-      sendSMS({
-        to: order.phone,
-        message: `${order.orderNumber} no'lu siparisini aldik. Odeme basarili. Tesekkurler!`
-      })
-    ])
+    try {
+      await Promise.all([
+        order.email ? sendEmail({
+          to: order.email,
+          subject: `Siparis Onayi - ${order.orderNumber}`,
+          body: `Sayin ${order.parentName}, ${order.orderNumber} numarali siparisini aldik. Odemeniz basariyla tamamlandi.`
+        }) : Promise.resolve(),
+        sendSMS({
+          to: order.phone,
+          message: `${order.orderNumber} no'lu siparisini aldik. Odeme basarili. Tesekkurler!`
+        })
+      ])
+    } catch (notifError) {
+      console.error('Bildirim gonderilemedi:', notifError)
+    }
 
     return NextResponse.json({
       success: true,
-      paymentId: paymentResult.paymentId,
+      paymentId,
       message: 'Odeme basariyla tamamlandi'
     })
 

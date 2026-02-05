@@ -10,6 +10,7 @@ import {
   BarChart3, TrendingUp, TrendingDown, DollarSign, ShoppingCart,
   Users, School, Package
 } from "lucide-react"
+import { formatNumber } from "@/lib/utils"
 
 interface ReportData {
   totalRevenue: number
@@ -26,17 +27,12 @@ interface ReportData {
 }
 
 const statusLabels: Record<string, string> = {
-  NEW: "Yeni",
-  PAYMENT_PENDING: "Odeme Bekleniyor",
-  PAYMENT_RECEIVED: "Odeme Alindi",
-  CONFIRMED: "Onaylandi",
-  INVOICED: "Faturalandi",
-  CARGO_SHIPPED: "Kargoda",
-  DELIVERED_TO_SCHOOL: "Okula Teslim",
-  DELIVERED_BY_CARGO: "Teslim Edildi",
-  COMPLETED: "Tamamlandi",
-  CANCELLED: "Iptal",
-  REFUNDED: "Iade"
+  PAID: "Ödendi",
+  PREPARING: "Hazırlanıyor",
+  SHIPPED: "Kargoda",
+  DELIVERED: "Teslim Edildi",
+  COMPLETED: "Tamamlandı",
+  CANCELLED: "İptal Edildi"
 }
 
 export default function RaporlarPage() {
@@ -108,7 +104,7 @@ export default function RaporlarPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalRevenue.toLocaleString("tr-TR")} TL
+              {formatNumber(data.totalRevenue)} TL
             </div>
             <p className="text-xs text-gray-500 mt-1">
               Ort. siparis: {data.averageOrderValue.toFixed(2)} TL
@@ -256,7 +252,7 @@ export default function RaporlarPage() {
                       <p className="text-sm text-gray-500">{school.orders} siparis</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold">{school.revenue.toLocaleString("tr-TR")} TL</p>
+                      <p className="font-bold">{formatNumber(school.revenue)} TL</p>
                     </div>
                   </div>
                 ))}

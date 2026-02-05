@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import ilIlceData from "@/data/il-ilce.json"
+import { formatPrice } from "@/lib/utils"
 
 interface PackageItem {
   id: string
@@ -121,9 +122,22 @@ export default function PaketPage() {
   const [acceptKVKK, setAcceptKVKK] = useState(false)
 
   // Fatura bilgileri
+  const [invoiceType, setInvoiceType] = useState<'bireysel' | 'kurumsal'>('bireysel')
   const [isCorporateInvoice, setIsCorporateInvoice] = useState(false)
+  const [companyTitle, setCompanyTitle] = useState("")
   const [taxNumber, setTaxNumber] = useState("")
   const [taxOffice, setTaxOffice] = useState("")
+
+  // Fatura adresi (farkli adres secenegi)
+  const [invoiceAddressSame, setInvoiceAddressSame] = useState(true)
+  const [invoiceStreetAddress, setInvoiceStreetAddress] = useState("")
+  const [invoiceStreetAddress2, setInvoiceStreetAddress2] = useState("")
+  const [invoiceSelectedIl, setInvoiceSelectedIl] = useState("")
+  const [invoiceSelectedIlce, setInvoiceSelectedIlce] = useState("")
+  const [invoicePostalCode, setInvoicePostalCode] = useState("")
+
+  // Ogrenci sube bilgisi
+  const [studentSection, setStudentSection] = useState("")
 
   // Ülke listesi
   const countries = [
@@ -135,9 +149,10 @@ export default function PaketPage() {
   // İl/İlçe seçimi
   const ilceler = ilIlceData.iller.find(il => il.name === selectedIl)?.ilceler || []
   const altIlceler = ilIlceData.iller.find(il => il.name === altSelectedIl)?.ilceler || []
+  const invoiceIlceler = ilIlceData.iller.find(il => il.name === invoiceSelectedIl)?.ilceler || []
 
   useEffect(() => {
-    fetchClassData()
+    loadClassData()
   }, [classId])
 
   useEffect(() => {
@@ -150,21 +165,41 @@ export default function PaketPage() {
     setAltSelectedIlce("")
   }, [altSelectedIl])
 
-  const fetchClassData = async () => {
-    try {
-      const res = await fetch(`/api/veli/class/${classId}`)
-      const data = await res.json()
+  useEffect(() => {
+    // Fatura adresi - İl değiştiğinde ilçeyi sıfırla
+    setInvoiceSelectedIlce("")
+  }, [invoiceSelectedIl])
 
-      if (!res.ok) {
-        setError(data.error || "Sınıf bulunamadı")
-        return
+  const loadClassData = () => {
+    try {
+      // Önce sessionStorage'dan oku (sifre dogrulama sonrasi kaydedilmis)
+      const storedData = sessionStorage.getItem('classData')
+
+      if (storedData) {
+        const parsed = JSON.parse(storedData)
+
+        // classId eslesiyor mu kontrol et
+        if (parsed.classId === classId) {
+          setClassData({
+            id: parsed.classId,
+            name: parsed.className,
+            school: {
+              id: parsed.schoolId,
+              name: parsed.schoolName,
+              deliveryType: parsed.deliveryType
+            },
+            package: parsed.package
+          })
+          setLoading(false)
+          return
+        }
       }
 
-      setClassData(data)
+      // SessionStorage'da veri yoksa veya classId eslesmiyorsa siparis sayfasina yonlendir
+      router.push('/siparis')
     } catch {
-      setError("Veri yüklenirken hata oluştu")
-    } finally {
-      setLoading(false)
+      // Hata durumunda siparis sayfasina yonlendir
+      router.push('/siparis')
     }
   }
 
@@ -221,9 +256,19 @@ export default function PaketPage() {
     }
 
     // Kurumsal fatura için vergi bilgileri
-    if (isCorporateInvoice && (!taxNumber || !taxOffice)) {
-      setError("Kurumsal fatura için vergi bilgilerini doldurun")
-      return false
+    if (invoiceType === 'kurumsal') {
+      if (!taxNumber || !taxOffice || !companyTitle) {
+        setError("Kurumsal fatura için TC/Vergi No, Firma Ünvanı ve Vergi Dairesi zorunludur")
+        return false
+      }
+    }
+
+    // Fatura adresi farklıysa kontrol et
+    if (!invoiceAddressSame && classData?.school.deliveryType === "CARGO") {
+      if (!invoiceStreetAddress || !invoiceSelectedIl || !invoiceSelectedIlce || !invoicePostalCode) {
+        setError("Fatura adresi bilgilerini eksiksiz doldurun")
+        return false
+      }
     }
 
     // Yasal onaylar
@@ -274,6 +319,16 @@ export default function PaketPage() {
         altAddress = altParts.join(', ')
       }
 
+      // Fatura adresi oluştur (farklı adres seçildiyse)
+      let invoiceAddr = null
+      if (!invoiceAddressSame && classData?.school.deliveryType === "CARGO") {
+        const invParts = [invoiceStreetAddress]
+        if (invoiceStreetAddress2) invParts.push(invoiceStreetAddress2)
+        invParts.push(invoiceSelectedIlce, invoiceSelectedIl)
+        invParts.push(invoicePostalCode, 'Türkiye')
+        invoiceAddr = invParts.join(', ')
+      }
+
       const res = await fetch("/api/veli/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -282,13 +337,17 @@ export default function PaketPage() {
           parentName: `${firstName} ${lastName}`,
           companyName: companyName || null,
           studentName: `${studentFirstName} ${studentLastName}`,
+          studentSection: studentSection || null,
           phone: phone.replace(/\s/g, ''),
           email,
           address: fullAddress,
           deliveryAddress: shipToDifferentAddress ? altAddress : null,
-          isCorporateInvoice,
-          taxNumber: isCorporateInvoice ? taxNumber : null,
-          taxOffice: isCorporateInvoice ? taxOffice : null,
+          invoiceAddress: invoiceAddr,
+          invoiceAddressSame,
+          isCorporateInvoice: invoiceType === 'kurumsal',
+          companyTitle: invoiceType === 'kurumsal' ? companyTitle : null,
+          taxNumber: invoiceType === 'kurumsal' ? taxNumber : null,
+          taxOffice: invoiceType === 'kurumsal' ? taxOffice : null,
           orderNote,
           paymentMethod: "CREDIT_CARD"
         })
@@ -302,24 +361,20 @@ export default function PaketPage() {
         return
       }
 
-      // Test ödeme işlemini gerçekleştir (mock kart bilgileri ile)
+      // Odeme islemi - mock modda otomatik onay
       const paymentRes = await fetch("/api/veli/payment", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId: data.orderId,
-          cardNumber: "4111111111111111",
-          cardHolder: `${firstName} ${lastName}`,
-          expiry: "12/28",
-          cvv: "123"
+          mockPayment: true
         })
       })
 
       const paymentData = await paymentRes.json()
 
       if (!paymentRes.ok) {
-        console.error("Ödeme hatası:", paymentData.error)
-        // Ödeme başarısız olsa bile sipariş oluşturuldu, confirmation sayfasına yönlendir
+        console.error("Odeme hatasi:", paymentData.error)
       }
 
       // Sipariş onay sayfasına yönlendir
@@ -492,7 +547,7 @@ export default function PaketPage() {
                       <select
                         value={country}
                         onChange={(e) => setCountry(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                         required
                       >
                         {countries.map((c) => (
@@ -507,7 +562,7 @@ export default function PaketPage() {
                           <select
                             value={selectedIl}
                             onChange={(e) => setSelectedIl(e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                             required
                           >
                             <option value="">İl Seçiniz</option>
@@ -521,11 +576,13 @@ export default function PaketPage() {
                           <select
                             value={selectedIlce}
                             onChange={(e) => setSelectedIlce(e.target.value)}
-                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                             required
                             disabled={!selectedIl}
                           >
-                            <option value="">İlçe Seçiniz</option>
+                            <option value="">
+                              {selectedIl ? "İlçe Seçiniz" : "Önce il seçiniz"}
+                            </option>
                             {ilceler.map((ilce) => (
                               <option key={ilce} value={ilce}>{ilce}</option>
                             ))}
@@ -604,7 +661,7 @@ export default function PaketPage() {
                         <select
                           value={altCountry}
                           onChange={(e) => setAltCountry(e.target.value)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                           required
                         >
                           {countries.map((c) => (
@@ -619,7 +676,7 @@ export default function PaketPage() {
                             <select
                               value={altSelectedIl}
                               onChange={(e) => setAltSelectedIl(e.target.value)}
-                              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                               required
                             >
                               <option value="">İl Seçiniz</option>
@@ -633,11 +690,13 @@ export default function PaketPage() {
                             <select
                               value={altSelectedIlce}
                               onChange={(e) => setAltSelectedIlce(e.target.value)}
-                              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                               required
                               disabled={!altSelectedIl}
                             >
-                              <option value="">İlçe Seçiniz</option>
+                              <option value="">
+                                {altSelectedIl ? "İlçe Seçiniz" : "Önce il seçiniz"}
+                              </option>
                               {altIlceler.map((ilce) => (
                                 <option key={ilce} value={ilce}>{ilce}</option>
                               ))}
@@ -685,7 +744,7 @@ export default function PaketPage() {
               {/* 🎓 Öğrenci Bilgileri */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">🎓 Öğrenci Bilgileri</h3>
-                <div className="grid sm:grid-cols-3 gap-4">
+                <div className="grid sm:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Öğrenci Adı *</label>
                     <input
@@ -707,12 +766,25 @@ export default function PaketPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Öğrenci Sınıfı *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sınıf *</label>
                     <input
                       type="text"
                       value={classData.name}
                       disabled
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Şube <span className="text-gray-400 text-xs">(Opsiyonel)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={studentSection}
+                      onChange={(e) => setStudentSection(e.target.value.toUpperCase().slice(0, 4))}
+                      placeholder="A, B, C..."
+                      maxLength={4}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 </div>
@@ -721,37 +793,162 @@ export default function PaketPage() {
               {/* 🧾 Fatura Bilgileri */}
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">🧾 Fatura Bilgileri</h3>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isCorporateInvoice}
-                    onChange={(e) => setIsCorporateInvoice(e.target.checked)}
-                    className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <span className="text-gray-700">Kurumsal fatura istiyorum</span>
-                </label>
-                {isCorporateInvoice && (
-                  <div className="grid sm:grid-cols-2 gap-4 mt-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Vergi Numarası *</label>
-                      <input
-                        type="text"
-                        value={taxNumber}
-                        onChange={(e) => setTaxNumber(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        required={isCorporateInvoice}
-                      />
+
+                {/* Bireysel/Kurumsal Radio Seçimi */}
+                <div className="flex gap-6 mb-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="invoiceType"
+                      value="bireysel"
+                      checked={invoiceType === 'bireysel'}
+                      onChange={() => {
+                        setInvoiceType('bireysel')
+                        setIsCorporateInvoice(false)
+                      }}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-gray-700">Bireysel Fatura</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="invoiceType"
+                      value="kurumsal"
+                      checked={invoiceType === 'kurumsal'}
+                      onChange={() => {
+                        setInvoiceType('kurumsal')
+                        setIsCorporateInvoice(true)
+                      }}
+                      className="w-4 h-4 text-blue-600"
+                    />
+                    <span className="text-gray-700">Kurumsal Fatura</span>
+                  </label>
+                </div>
+
+                {/* Kurumsal Fatura Alanları */}
+                {invoiceType === 'kurumsal' && (
+                  <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">TC Kimlik No / Vergi No *</label>
+                        <input
+                          type="text"
+                          value={taxNumber}
+                          onChange={(e) => setTaxNumber(e.target.value)}
+                          placeholder="10 veya 11 haneli numara"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          required={invoiceType === 'kurumsal'}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Firma Ünvanı *</label>
+                        <input
+                          type="text"
+                          value={companyTitle}
+                          onChange={(e) => setCompanyTitle(e.target.value)}
+                          placeholder="Şirket veya şahıs ismi"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          required={invoiceType === 'kurumsal'}
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Vergi Dairesi *</label>
+                        <input
+                          type="text"
+                          value={taxOffice}
+                          onChange={(e) => setTaxOffice(e.target.value)}
+                          placeholder="Vergi dairesi adı"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          required={invoiceType === 'kurumsal'}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Vergi Dairesi *</label>
+                  </div>
+                )}
+
+                {/* Fatura Adresi - Sadece Kargo Teslim ise */}
+                {isCargoDelivery && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <label className="flex items-center gap-3 cursor-pointer">
                       <input
-                        type="text"
-                        value={taxOffice}
-                        onChange={(e) => setTaxOffice(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                        required={isCorporateInvoice}
+                        type="checkbox"
+                        checked={invoiceAddressSame}
+                        onChange={(e) => setInvoiceAddressSame(e.target.checked)}
+                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                       />
-                    </div>
+                      <span className="text-gray-700">Faturamı aynı adrese gönder</span>
+                    </label>
+
+                    {!invoiceAddressSame && (
+                      <div className="mt-4 space-y-4 p-4 bg-gray-50 rounded-lg">
+                        <h4 className="text-sm font-semibold text-gray-700">Fatura Adresi</h4>
+                        <div className="grid sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">İl *</label>
+                            <select
+                              value={invoiceSelectedIl}
+                              onChange={(e) => setInvoiceSelectedIl(e.target.value)}
+                              className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                              required={!invoiceAddressSame}
+                            >
+                              <option value="">İl Seçiniz</option>
+                              {ilIlceData.iller.map((il) => (
+                                <option key={il.id} value={il.name}>{il.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">İlçe *</label>
+                            <select
+                              value={invoiceSelectedIlce}
+                              onChange={(e) => setInvoiceSelectedIlce(e.target.value)}
+                              className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              required={!invoiceAddressSame}
+                              disabled={!invoiceSelectedIl}
+                            >
+                              <option value="">
+                                {invoiceSelectedIl ? "İlçe Seçiniz" : "Önce il seçiniz"}
+                              </option>
+                              {invoiceIlceler.map((ilce) => (
+                                <option key={ilce} value={ilce}>{ilce}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Sokak Adresi *</label>
+                          <input
+                            type="text"
+                            value={invoiceStreetAddress}
+                            onChange={(e) => setInvoiceStreetAddress(e.target.value)}
+                            placeholder="Bina numarası ve sokak adı"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                            required={!invoiceAddressSame}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Apartman, daire vb. (Opsiyonel)</label>
+                          <input
+                            type="text"
+                            value={invoiceStreetAddress2}
+                            onChange={(e) => setInvoiceStreetAddress2(e.target.value)}
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Posta Kodu *</label>
+                          <input
+                            type="text"
+                            value={invoicePostalCode}
+                            onChange={(e) => setInvoicePostalCode(e.target.value)}
+                            placeholder="34000"
+                            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 max-w-[200px]"
+                            required={!invoiceAddressSame}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -871,7 +1068,7 @@ export default function PaketPage() {
                     <div className="flex justify-between items-center">
                       <span className="font-semibold text-gray-900">TOPLAM TUTAR</span>
                       <span className="text-2xl font-bold text-blue-900">
-                        {Number(classData.package.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
+                        {formatPrice(classData.package.price)} TL
                       </span>
                     </div>
 
@@ -924,7 +1121,7 @@ export default function PaketPage() {
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <p className="text-sm text-gray-500">Ödenecek Tutar</p>
                 <p className="text-2xl font-bold text-blue-900">
-                  {Number(classData.package.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
+                  {formatPrice(classData.package.price)} TL
                 </p>
               </div>
               <div className="flex gap-3">

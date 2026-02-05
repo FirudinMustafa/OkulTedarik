@@ -37,7 +37,7 @@ export interface RefundResult {
   message?: string
 }
 
-const USE_MOCK = process.env.USE_MOCK_PAYMENT === 'true'
+const USE_MOCK = process.env.USE_MOCK_PAYMENT !== 'false'
 
 /**
  * Odeme baslat
@@ -153,20 +153,25 @@ export interface ProcessPaymentResult {
 }
 
 export async function processPayment(data: ProcessPaymentData): Promise<ProcessPaymentResult> {
-  console.log('[MOCK IYZICO] Odeme isleniyor:', data.orderNumber, data.amount, 'TL')
+  if (USE_MOCK) {
+    console.log('[MOCK IYZICO] Odeme isleniyor:', data.orderNumber, data.amount, 'TL')
 
-  // Simulasyon: 1.5 saniye bekle
-  await new Promise(resolve => setTimeout(resolve, 1500))
+    // Simulasyon: 1.5 saniye bekle
+    await new Promise(resolve => setTimeout(resolve, 1500))
 
-  // Kart numarasi 4111 ile baslayanlar basarili, digerlerinde %90 basari
-  const isTestCard = data.cardNumber.startsWith('4111')
-  const success = isTestCard || Math.random() > 0.1
+    // Kart numarasi 4111 ile baslayanlar basarili, digerlerinde %90 basari
+    const isTestCard = data.cardNumber.startsWith('4111')
+    const success = isTestCard || Math.random() > 0.1
 
-  return {
-    success,
-    paymentId: success ? `PAY_${Date.now()}` : undefined,
-    errorMessage: success ? undefined : 'Kart bilgileri hatali veya bakiye yetersiz'
+    return {
+      success,
+      paymentId: success ? `PAY_${Date.now()}` : undefined,
+      errorMessage: success ? undefined : 'Kart bilgileri hatali veya bakiye yetersiz'
+    }
   }
+
+  // TODO: Gercek Iyzico odeme islemi
+  throw new Error('Gercek Iyzico entegrasyonu henuz yapilandirilmadi')
 }
 
 /**

@@ -130,24 +130,39 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Bagli siniflar var mi kontrol et
-    const classCount = await prisma.class.count({
+    // Paket bilgisini al
+    const pkg = await prisma.package.findUnique({
+      where: { id }
+    })
+
+    if (!pkg) {
+      return NextResponse.json({ error: 'Paket bulunamadi' }, { status: 404 })
+    }
+
+    // Bagli verileri sirayla sil
+    // 1. Bu pakete ait siparis iptal taleplerini sil
+    await prisma.cancelRequest.deleteMany({
+      where: { order: { packageId: id } }
+    })
+
+    // 2. Bu pakete ait siparisleri sil
+    await prisma.order.deleteMany({
       where: { packageId: id }
     })
 
-    if (classCount > 0) {
-      return NextResponse.json(
-        { error: 'Bu paket siniflara atanmis. Once siniflardan kaldiriniz.' },
-        { status: 400 }
-      )
-    }
+    // 3. Siniflardaki paket atamasini kaldir
+    await prisma.class.updateMany({
+      where: { packageId: id },
+      data: { packageId: null }
+    })
 
-    // Paket itemlarini sil
+    // 4. Paket itemlarini sil
     await prisma.packageItem.deleteMany({
       where: { packageId: id }
     })
 
-    const pkg = await prisma.package.delete({
+    // 5. Paketi sil
+    await prisma.package.delete({
       where: { id }
     })
 

@@ -10,7 +10,18 @@ export function formatCurrency(amount: number | string): string {
   return new Intl.NumberFormat('tr-TR', {
     style: 'currency',
     currency: 'TRY',
+    minimumFractionDigits: 0,
   }).format(num)
+}
+
+export function formatNumber(amount: number | string): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  return new Intl.NumberFormat('tr-TR').format(num)
+}
+
+export function formatPrice(amount: number | string): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount
+  return new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(num)
 }
 
 export function formatDate(date: Date | string): string {
@@ -28,6 +39,24 @@ export function formatDateTime(date: Date | string): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d)
+}
+
+export function formatDateShort(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit',
+    month: 'short',
+  }).format(d)
+}
+
+export function formatDateTimeFull(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  return new Intl.DateTimeFormat('tr-TR', {
+    day: '2-digit',
+    month: 'short',
     hour: '2-digit',
     minute: '2-digit',
   }).format(d)

@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Search, XCircle, CheckCircle, Clock, AlertCircle } from "lucide-react"
+import { formatDateTime } from "@/lib/utils"
 
 interface CancelRequest {
   id: string
@@ -98,16 +99,6 @@ export default function IptalTalepleriPage() {
     } finally {
       setProcessing(false)
     }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("tr-TR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    })
   }
 
   const filteredRequests = requests.filter(r => {
@@ -257,7 +248,7 @@ export default function IptalTalepleriPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">
-                      {formatDate(request.createdAt)}
+                      {formatDateTime(request.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">
                       {request.status === "PENDING" && (

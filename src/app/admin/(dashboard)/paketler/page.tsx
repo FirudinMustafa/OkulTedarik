@@ -40,6 +40,7 @@ export default function PaketlerPage() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [packageToDelete, setPackageToDelete] = useState<PackageType | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [editingPackage, setEditingPackage] = useState<PackageType | null>(null)
   const [viewingPackage, setViewingPackage] = useState<PackageType | null>(null)
   const [formData, setFormData] = useState({
@@ -123,6 +124,7 @@ export default function PaketlerPage() {
 
   const openDeleteDialog = (pkg: PackageType) => {
     setPackageToDelete(pkg)
+    setDeleteError(null)
     setDeleteDialogOpen(true)
   }
 
@@ -150,13 +152,17 @@ export default function PaketlerPage() {
         method: "DELETE",
         credentials: 'include'
       })
+      const data = await res.json()
       if (res.ok) {
         fetchPackages()
+        setDeleteDialogOpen(false)
+        setPackageToDelete(null)
+      } else {
+        setDeleteError(data.error || "Paket silinemedi")
       }
-      setDeleteDialogOpen(false)
-      setPackageToDelete(null)
     } catch (error) {
       console.error("Silme hatasi:", error)
+      setDeleteError("Bir hata olustu. Lutfen tekrar deneyin.")
     }
   }
 
@@ -447,6 +453,11 @@ export default function PaketlerPage() {
             <p className="text-gray-600 mb-4">
               <strong>{packageToDelete?.name}</strong> paketini kaldirmak istiyorsunuz. Ne yapmak istediginizi secin:
             </p>
+            {deleteError && (
+              <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600 font-medium">{deleteError}</p>
+              </div>
+            )}
             <div className="space-y-3">
               <div className="p-3 border rounded-lg hover:bg-gray-50">
                 <p className="font-medium">Pasife Cek</p>

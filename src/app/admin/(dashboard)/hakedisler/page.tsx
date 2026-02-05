@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Search, DollarSign, CheckCircle, Clock, Building2 } from "lucide-react"
+import { formatDate } from "@/lib/utils"
 
 interface SchoolPayment {
   id: string
@@ -102,10 +103,6 @@ export default function HakedislerPage() {
     } catch (error) {
       console.error("Hakedis olusturma hatasi:", error)
     }
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("tr-TR")
   }
 
   const filteredPayments = payments.filter(p => {

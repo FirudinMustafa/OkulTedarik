@@ -59,7 +59,7 @@ export async function POST(
 
       await prisma.order.update({
         where: { id: cancelRequest.orderId },
-        data: { status: 'REFUNDED' }
+        data: { status: 'CANCELLED' }
       })
     }
 

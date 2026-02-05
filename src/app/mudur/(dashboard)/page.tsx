@@ -6,6 +6,7 @@ import {
   ShoppingCart, DollarSign, Users, Package,
   CheckCircle, Clock
 } from "lucide-react"
+import { formatNumber } from "@/lib/utils"
 
 interface Order {
   id: string
@@ -42,18 +43,18 @@ async function getDashboardStats(schoolId: string) {
   const totalOrders = allOrders.length
   const completedOrders = allOrders.filter((o: Order) => o.status === 'COMPLETED').length
   const pendingOrders = allOrders.filter((o: Order) =>
-    !['COMPLETED', 'CANCELLED', 'REFUNDED'].includes(o.status)
+    !['COMPLETED', 'CANCELLED'].includes(o.status)
   ).length
 
   const totalRevenue = allOrders
-    .filter((o: Order) => !['CANCELLED', 'REFUNDED'].includes(o.status))
+    .filter((o: Order) => o.status !== 'CANCELLED')
     .reduce((acc: number, o: Order) => acc + Number(o.totalAmount), 0)
 
   // Komisyonu sinif bazinda hesapla
   let totalCommission = 0
   school.classes.forEach((classItem: ClassItem) => {
     const classOrders = classItem.orders.filter(
-      (o: Order) => !['CANCELLED', 'REFUNDED'].includes(o.status)
+      (o: Order) => o.status !== 'CANCELLED'
     ).length
     totalCommission += Number(classItem.commissionAmount) * classOrders
   })
@@ -95,17 +96,12 @@ export default async function MudurDashboard() {
   }
 
   const statusLabels: Record<string, string> = {
-    NEW: "Yeni",
-    PAYMENT_PENDING: "Odeme Bekleniyor",
-    PAYMENT_RECEIVED: "Odeme Alindi",
-    CONFIRMED: "Onaylandi",
-    INVOICED: "Faturalandi",
-    CARGO_SHIPPED: "Kargoda",
-    DELIVERED_TO_SCHOOL: "Okula Teslim",
-    DELIVERED_BY_CARGO: "Teslim Edildi",
-    COMPLETED: "Tamamlandi",
-    CANCELLED: "Iptal",
-    REFUNDED: "Iade"
+    PAID: "Ödendi",
+    PREPARING: "Hazırlanıyor",
+    SHIPPED: "Kargoda",
+    DELIVERED: "Teslim Edildi",
+    COMPLETED: "Tamamlandı",
+    CANCELLED: "İptal Edildi"
   }
 
   const statCards = [
@@ -132,14 +128,14 @@ export default async function MudurDashboard() {
     },
     {
       title: "Toplam Ciro",
-      value: `${stats.totalRevenue.toLocaleString('tr-TR')} TL`,
+      value: `${formatNumber(stats.totalRevenue)} TL`,
       icon: DollarSign,
       color: "text-purple-600",
       bgColor: "bg-purple-100"
     },
     {
       title: "Toplam Komisyon",
-      value: `${stats.commission.toLocaleString('tr-TR')} TL`,
+      value: `${formatNumber(stats.commission)} TL`,
       icon: DollarSign,
       color: "text-emerald-600",
       bgColor: "bg-emerald-100"

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
+import { formatDateTime, formatPrice } from "@/lib/utils"
 
 interface OrderData {
   orderNumber: string
@@ -20,16 +21,13 @@ interface OrderData {
   paidAt?: string
 }
 
-const statusLabels: Record<string, { label: string; color: string; icon: string }> = {
-  PAYMENT_PENDING: { label: 'Ödeme Bekleniyor', color: 'yellow', icon: '⏳' },
-  PAYMENT_RECEIVED: { label: 'Ödeme Alındı', color: 'green', icon: '✓' },
-  CONFIRMED: { label: 'Onaylandı', color: 'blue', icon: '✓' },
-  INVOICED: { label: 'Faturalandı', color: 'purple', icon: '📄' },
-  CARGO_SHIPPED: { label: 'Kargoya Verildi', color: 'orange', icon: '📦' },
-  DELIVERED_TO_SCHOOL: { label: 'Okula Teslim Edildi', color: 'green', icon: '🏫' },
-  DELIVERED_BY_CARGO: { label: 'Kargo ile Teslim Edildi', color: 'green', icon: '✓' },
-  COMPLETED: { label: 'Tamamlandı', color: 'green', icon: '✓' },
-  CANCELLED: { label: 'İptal Edildi', color: 'red', icon: '✗' },
+const statusLabels: Record<string, { label: string; bgClass: string; textClass: string; icon: string }> = {
+  PAID: { label: 'Ödendi', bgClass: 'bg-blue-50 border-b border-blue-100', textClass: 'text-blue-700', icon: '✓' },
+  PREPARING: { label: 'Hazırlanıyor', bgClass: 'bg-amber-50 border-b border-amber-100', textClass: 'text-amber-700', icon: '⏳' },
+  SHIPPED: { label: 'Kargoda', bgClass: 'bg-purple-50 border-b border-purple-100', textClass: 'text-purple-700', icon: '📦' },
+  DELIVERED: { label: 'Teslim Edildi', bgClass: 'bg-green-50 border-b border-green-100', textClass: 'text-green-700', icon: '✓' },
+  COMPLETED: { label: 'Tamamlandı', bgClass: 'bg-green-50 border-b border-green-100', textClass: 'text-green-700', icon: '✓' },
+  CANCELLED: { label: 'İptal Edildi', bgClass: 'bg-red-50 border-b border-red-100', textClass: 'text-red-700', icon: '✗' },
 }
 
 export default function SiparisOnayPage() {
@@ -100,7 +98,7 @@ export default function SiparisOnayPage() {
 
   if (!order) return null
 
-  const statusInfo = statusLabels[order.status] || { label: order.status, color: 'gray', icon: '?' }
+  const statusInfo = statusLabels[order.status] || { label: order.status, bgClass: 'bg-gray-50 border-b border-gray-100', textClass: 'text-gray-700', icon: '?' }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white">
@@ -142,12 +140,12 @@ export default function SiparisOnayPage() {
         {/* Sipariş Detayları */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
           {/* Durum Bandı */}
-          <div className={`px-6 py-4 bg-${statusInfo.color}-50 border-b border-${statusInfo.color}-100`}>
+          <div className={`px-6 py-4 ${statusInfo.bgClass}`}>
             <div className="flex items-center gap-3">
               <span className="text-2xl">{statusInfo.icon}</span>
               <div>
                 <p className="text-sm text-gray-600">Sipariş Durumu</p>
-                <p className={`font-semibold text-${statusInfo.color}-700`}>{statusInfo.label}</p>
+                <p className={`font-semibold ${statusInfo.textClass}`}>{statusInfo.label}</p>
               </div>
             </div>
           </div>
@@ -190,13 +188,7 @@ export default function SiparisOnayPage() {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-1">Sipariş Tarihi</h3>
                 <p className="text-gray-900 font-medium">
-                  {new Date(order.createdAt).toLocaleDateString('tr-TR', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                  {formatDateTime(order.createdAt)}
                 </p>
               </div>
             </div>
@@ -205,7 +197,7 @@ export default function SiparisOnayPage() {
             <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
               <span className="text-gray-700 font-medium">Toplam Tutar</span>
               <span className="text-2xl font-bold text-blue-900">
-                {Number(order.totalAmount).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL
+                {formatPrice(order.totalAmount)} TL
               </span>
             </div>
 

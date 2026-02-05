@@ -2,14 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSession, hashPassword } from '@/lib/auth'
 import { logAction } from '@/lib/logger'
-
-// Okul sifresi olustur
-function generateSchoolPassword(schoolName: string): string {
-  const year = new Date().getFullYear()
-  const prefix = schoolName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X')
-  const random = Math.random().toString(36).substring(2, 7).toUpperCase()
-  return `${year}-${prefix}-${random}`
-}
+import { generateSchoolPassword } from '@/lib/password-generator'
 
 export async function GET() {
   try {
@@ -20,7 +13,19 @@ export async function GET() {
 
     const schools = await prisma.school.findMany({
       orderBy: { name: 'asc' },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        address: true,
+        phone: true,
+        email: true,
+        deliveryType: true,
+        password: true,
+        directorName: true,
+        directorEmail: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
         _count: {
           select: { classes: true }
         }
@@ -53,7 +58,8 @@ export async function POST(request: Request) {
       deliveryType,
       directorName,
       directorEmail,
-      directorPassword
+      directorPassword,
+      password // Veli giris sifresi (opsiyonel - verilmezse otomatik olusturulur)
     } = body
 
     if (!name || !directorEmail || !directorPassword) {
@@ -66,8 +72,21 @@ export async function POST(request: Request) {
     // Mudur sifresini hashle
     const hashedPassword = await hashPassword(directorPassword)
 
-    // Okul sifresi olustur
-    const schoolPassword = generateSchoolPassword(name)
+    // Veli giris sifresi - verilmediyse otomatik olustur
+    let schoolPassword = password?.toUpperCase()
+    if (!schoolPassword) {
+      // Benzersiz sifre olustur
+      let isUnique = false
+      let attempt = 0
+      while (!isUnique && attempt < 10) {
+        schoolPassword = generateSchoolPassword()
+        const existing = await prisma.school.findFirst({
+          where: { password: schoolPassword }
+        })
+        if (!existing) isUnique = true
+        attempt++
+      }
+    }
 
     const school = await prisma.school.create({
       data: {
@@ -77,7 +96,6 @@ export async function POST(request: Request) {
         email: email || null,
         deliveryType: deliveryType || 'SCHOOL_DELIVERY',
         password: schoolPassword,
-        passwordGeneratedAt: new Date(),
         directorName: directorName || null,
         directorEmail: directorEmail.toLowerCase(),
         directorPassword: hashedPassword
@@ -93,7 +111,20 @@ export async function POST(request: Request) {
       details: { name: school.name }
     })
 
-    return NextResponse.json({ school })
+    return NextResponse.json({
+      school: {
+        id: school.id,
+        name: school.name,
+        address: school.address,
+        phone: school.phone,
+        email: school.email,
+        deliveryType: school.deliveryType,
+        password: school.password,
+        directorName: school.directorName,
+        directorEmail: school.directorEmail,
+        isActive: school.isActive
+      }
+    })
   } catch (error) {
     console.error('Okul olusturulamadi:', error)
     return NextResponse.json(

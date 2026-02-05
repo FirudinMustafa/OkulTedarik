@@ -14,12 +14,11 @@ model School {
   phone                        String?
   email                        String?
   deliveryType                 DeliveryType    @default(SCHOOL_DELIVERY)
-  password                     String          @unique
-  passwordGeneratedAt          DateTime?
-  passwordChangedBy            String?
+  password                     String          @unique // Veli giris sifresi (okul bazli)
   directorName                 String?
   directorEmail                String          @unique
   directorPassword             String
+  directorPasswordPlain        String? // Admin goruntulemesi icin
   directorPasswordResetToken   String?
   directorPasswordResetExpires DateTime?
   directorLastLogin            DateTime?
@@ -35,16 +34,16 @@ model School {
 }
 
 model Class {
-  id               String    @id @default(cuid())
+  id               String   @id @default(cuid())
   name             String
-  commissionAmount Decimal   @default(0.00) @db.Decimal(10, 2)
-  isActive         Boolean   @default(true)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  commissionAmount Decimal  @default(0.00) @db.Decimal(10, 2)
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
   schoolId         String
   packageId        String?
-  package          Package?  @relation(fields: [packageId], references: [id])
-  school           School    @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  package          Package? @relation(fields: [packageId], references: [id])
+  school           School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
   orders           Order[]
 
   @@index([schoolId])
@@ -83,20 +82,20 @@ model PackageItem {
 }
 
 model Order {
-  id                 String            @id @default(cuid())
-  orderNumber        String            @unique
+  id                 String         @id @default(cuid())
+  orderNumber        String         @unique
   parentName         String
   studentName        String
   phone              String
   email              String?
-  address            String?           @db.Text
-  totalAmount        Decimal           @db.Decimal(10, 2)
-  status             OrderStatus       @default(NEW)
+  address            String?        @db.Text
+  totalAmount        Decimal        @db.Decimal(10, 2)
+  status             OrderStatus    @default(PAID)
   paymentMethod      PaymentMethod?
   paymentId          String?
   paymentUrl         String?
   paidAt             DateTime?
-  isCorporateInvoice Boolean           @default(false)
+  isCorporateInvoice Boolean        @default(false)
   taxNumber          String?
   taxOffice          String?
   invoiceNo          String?
@@ -108,10 +107,19 @@ model Order {
   deliveredAt        DateTime?
   deliveredBy        String?
   discountCode       String?
-  discountAmount     Decimal?          @db.Decimal(10, 2)
+  discountAmount     Decimal?       @db.Decimal(10, 2)
   confirmedAt        DateTime?
   invoicedAt         DateTime?
   cancelledAt        DateTime?
+
+  // Yeni alanlar - Kurumsal fatura ve adres
+  companyTitle       String? // Firma Unvani
+  studentSection     String? @db.VarChar(4) // Sube (max 4 karakter)
+  deliveryAddress    String? @db.Text // Teslimat adresi (farkli adres)
+  invoiceAddress     String? @db.Text // Fatura adresi
+  orderNote          String? @db.Text // Siparis notu
+  invoiceAddressSame Boolean @default(true) // Fatura ayni adrese mi
+
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   classId            String
@@ -255,17 +263,12 @@ enum DeliveryType {
 }
 
 enum OrderStatus {
-  NEW
-  PAYMENT_PENDING
-  PAYMENT_RECEIVED
-  CONFIRMED
-  INVOICED
-  CARGO_SHIPPED
-  DELIVERED_TO_SCHOOL
-  DELIVERED_BY_CARGO
+  PAID
+  PREPARING
+  SHIPPED
+  DELIVERED
   COMPLETED
   CANCELLED
-  REFUNDED
 }
 
 enum PaymentMethod {

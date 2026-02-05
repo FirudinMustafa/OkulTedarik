@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     // Iptal edilebilir durumlari kontrol et
-    const cancellableStatuses = ['NEW', 'PAYMENT_PENDING', 'PAYMENT_RECEIVED', 'CONFIRMED']
+    const cancellableStatuses = ['PAID', 'PREPARING']
     if (!cancellableStatuses.includes(order.status)) {
       return NextResponse.json(
         { error: 'Bu siparis artik iptal edilemez' },
@@ -39,10 +39,17 @@ export async function POST(request: Request) {
     })
 
     if (existingRequest) {
-      return NextResponse.json(
-        { error: 'Bu siparis icin zaten bir iptal talebi mevcut' },
-        { status: 400 }
-      )
+      // Reddedilen talep varsa sil ve yeniden olusturulmasina izin ver
+      if (existingRequest.status === 'REJECTED') {
+        await prisma.cancelRequest.delete({
+          where: { id: existingRequest.id }
+        })
+      } else {
+        return NextResponse.json(
+          { error: 'Bu siparis icin zaten bir iptal talebi mevcut' },
+          { status: 400 }
+        )
+      }
     }
 
     // Iptal talebi olustur

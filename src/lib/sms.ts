@@ -9,7 +9,7 @@ export interface SMSResult {
   errorMessage?: string
 }
 
-const USE_MOCK = process.env.USE_MOCK_SMS === 'true'
+const USE_MOCK = process.env.USE_MOCK_SMS !== 'false'
 
 export async function sendSMS(data: { to: string; message: string }): Promise<SMSResult> {
   return sendSMSInternal(data.to, data.message)

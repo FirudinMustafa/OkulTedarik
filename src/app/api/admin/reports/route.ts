@@ -53,11 +53,11 @@ export async function GET(request: Request) {
     // Hesaplamalar
     const totalOrders = orders.length
     const totalRevenue = orders
-      .filter(o => !['CANCELLED', 'REFUNDED'].includes(o.status))
+      .filter(o => o.status !== 'CANCELLED')
       .reduce((acc, o) => acc + Number(o.totalAmount), 0)
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0
     const completedOrders = orders.filter(o => o.status === 'COMPLETED').length
-    const cancelledOrders = orders.filter(o => ['CANCELLED', 'REFUNDED'].includes(o.status)).length
+    const cancelledOrders = orders.filter(o => o.status === 'CANCELLED').length
 
     // Durum dagilimi
     const ordersByStatus: Record<string, number> = {}

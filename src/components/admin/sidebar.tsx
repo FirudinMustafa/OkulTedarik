@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, School, Users, Package, ShoppingCart,
-  Truck, FileText, DollarSign, XCircle, BarChart3, Settings,
+  DollarSign, XCircle, BarChart3,
   LogOut, BookOpen, Menu, X
 } from "lucide-react"
 import { useState } from "react"
@@ -24,11 +24,9 @@ const menuItems = [
   { href: "/admin/siniflar", label: "Siniflar", icon: Users },
   { href: "/admin/paketler", label: "Paketler", icon: Package },
   { href: "/admin/siparisler", label: "Siparisler", icon: ShoppingCart },
-  { href: "/admin/teslimat", label: "Teslimat", icon: Truck },
   { href: "/admin/hakedisler", label: "Hakedisler", icon: DollarSign },
   { href: "/admin/iptal-talepleri", label: "Iptal Talepleri", icon: XCircle },
   { href: "/admin/raporlar", label: "Raporlar", icon: BarChart3 },
-  { href: "/admin/loglar", label: "Sistem Loglari", icon: FileText },
 ]
 
 export default function AdminSidebar({ user }: SidebarProps) {

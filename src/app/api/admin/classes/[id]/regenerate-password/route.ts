@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSession } from '@/lib/auth'
 import { logAction } from '@/lib/logger'
-import { generateClassPassword } from '@/lib/password-generator'
+import { generateSchoolPassword } from '@/lib/password-generator'
 
 export async function POST(
   request: Request,
@@ -16,10 +16,43 @@ export async function POST(
 
     const { id } = await params
 
-    const newPassword = generateClassPassword()
-
-    const classData = await prisma.class.update({
+    // Sinifi bul ve okul bilgisini al
+    const classData = await prisma.class.findUnique({
       where: { id },
+      include: { school: true }
+    })
+
+    if (!classData) {
+      return NextResponse.json({ error: 'Sinif bulunamadi' }, { status: 404 })
+    }
+
+    // Benzersiz okul sifresi olustur
+    let newPassword: string = ''
+    let isUnique = false
+    let attempt = 0
+
+    while (!isUnique && attempt < 10) {
+      newPassword = generateSchoolPassword()
+      const existing = await prisma.school.findFirst({
+        where: {
+          password: newPassword,
+          id: { not: classData.schoolId }
+        }
+      })
+      if (!existing) isUnique = true
+      attempt++
+    }
+
+    if (!newPassword || !isUnique) {
+      return NextResponse.json(
+        { error: 'Benzersiz sifre olusturulamadi, tekrar deneyin' },
+        { status: 500 }
+      )
+    }
+
+    // Okulun veli giris sifresini guncelle (sifre okul bazli)
+    await prisma.school.update({
+      where: { id: classData.schoolId },
       data: { password: newPassword }
     })
 
@@ -27,14 +60,20 @@ export async function POST(
       userId: session.id,
       userType: 'ADMIN',
       action: 'UPDATE',
-      entity: 'CLASS',
-      entityId: classData.id,
-      details: { action: 'password_regenerated', name: classData.name }
+      entity: 'SCHOOL',
+      entityId: classData.schoolId,
+      details: {
+        action: 'school_password_regenerated_via_class',
+        className: classData.name,
+        schoolName: classData.school.name
+      }
     })
 
     return NextResponse.json({
       success: true,
-      password: newPassword
+      password: newPassword,
+      schoolName: classData.school.name,
+      message: `${classData.school.name} okulunun veli giris sifresi yenilendi`
     })
   } catch (error) {
     console.error('Sifre yenilenemedi:', error)

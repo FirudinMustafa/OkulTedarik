@@ -7,33 +7,24 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import { ShoppingCart } from "lucide-react"
+import { formatDateTime } from "@/lib/utils"
 
 const statusLabels: Record<string, string> = {
-  NEW: "Yeni",
-  PAYMENT_PENDING: "Odeme Bekleniyor",
-  PAYMENT_RECEIVED: "Odeme Alindi",
-  CONFIRMED: "Onaylandi",
-  INVOICED: "Faturalandi",
-  CARGO_SHIPPED: "Kargoda",
-  DELIVERED_TO_SCHOOL: "Okula Teslim",
-  DELIVERED_BY_CARGO: "Teslim Edildi",
-  COMPLETED: "Tamamlandi",
-  CANCELLED: "Iptal",
-  REFUNDED: "Iade"
+  PAID: "Ödendi",
+  PREPARING: "Hazırlanıyor",
+  SHIPPED: "Kargoda",
+  DELIVERED: "Teslim Edildi",
+  COMPLETED: "Tamamlandı",
+  CANCELLED: "İptal Edildi"
 }
 
 const statusColors: Record<string, string> = {
-  NEW: "bg-blue-100 text-blue-800",
-  PAYMENT_PENDING: "bg-yellow-100 text-yellow-800",
-  PAYMENT_RECEIVED: "bg-green-100 text-green-800",
-  CONFIRMED: "bg-purple-100 text-purple-800",
-  INVOICED: "bg-indigo-100 text-indigo-800",
-  CARGO_SHIPPED: "bg-orange-100 text-orange-800",
-  DELIVERED_TO_SCHOOL: "bg-teal-100 text-teal-800",
-  DELIVERED_BY_CARGO: "bg-emerald-100 text-emerald-800",
-  COMPLETED: "bg-green-100 text-green-800",
-  CANCELLED: "bg-red-100 text-red-800",
-  REFUNDED: "bg-gray-100 text-gray-800"
+  PAID: "bg-blue-100 text-blue-800",
+  PREPARING: "bg-amber-100 text-amber-800",
+  SHIPPED: "bg-purple-100 text-purple-800",
+  DELIVERED: "bg-green-100 text-green-800",
+  COMPLETED: "bg-emerald-100 text-emerald-800",
+  CANCELLED: "bg-red-100 text-red-800"
 }
 
 async function getSchoolOrders(schoolId: string) {
@@ -70,16 +61,6 @@ export default async function MudurSiparislerPage() {
   }
 
   const { orders, deliveryType } = await getSchoolOrders(session.schoolId)
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString("tr-TR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    })
-  }
 
   return (
     <div className="space-y-6">
@@ -143,7 +124,7 @@ export default async function MudurSiparislerPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-gray-500">
-                      {formatDate(order.createdAt)}
+                      {formatDateTime(order.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))}

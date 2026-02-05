@@ -57,6 +57,21 @@
   }
 }
 
+/* Native select dropdown fix - ensure dropdowns open properly */
+select {
+  -webkit-appearance: menulist-button !important;
+  -moz-appearance: menulist-button !important;
+  appearance: menulist-button !important;
+  cursor: pointer;
+  background-color: white;
+}
+
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background-color: #f3f4f6;
+}
+
 .dark {
   --color-background: hsl(222.2 84% 4.9%);
   --color-foreground: hsl(210 40% 98%);

@@ -16,7 +16,7 @@ export interface EmailResult {
   errorMessage?: string
 }
 
-const USE_MOCK = process.env.USE_MOCK_EMAIL === 'true'
+const USE_MOCK = process.env.USE_MOCK_EMAIL !== 'false'
 
 export async function sendEmail(data: { to: string; subject: string; body: string }): Promise<EmailResult> {
   return sendEmailInternal({

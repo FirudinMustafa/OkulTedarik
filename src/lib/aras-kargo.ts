@@ -35,7 +35,7 @@ export interface TrackingInfo {
   }[]
 }
 
-const USE_MOCK = process.env.USE_MOCK_CARGO === 'true'
+const USE_MOCK = process.env.USE_MOCK_CARGO !== 'false'
 
 /**
  * Kargo kaydı olustur

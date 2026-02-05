@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getAdminSession } from '@/lib/auth'
+import { getAdminSession, hashPassword } from '@/lib/auth'
 import { logAction } from '@/lib/logger'
 
 export async function GET(
@@ -54,9 +54,17 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
+    // directorPassword varsa hash'le
+    const { directorPassword, ...rest } = body
+    const updateData: Record<string, unknown> = { ...rest }
+
+    if (directorPassword && directorPassword.trim()) {
+      updateData.directorPassword = await hashPassword(directorPassword.trim())
+    }
+
     const school = await prisma.school.update({
       where: { id },
-      data: body
+      data: updateData
     })
 
     await logAction({
@@ -90,19 +98,43 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Bagli siniflar var mi kontrol et
-    const classCount = await prisma.class.count({
+    // Okul bilgisini al
+    const school = await prisma.school.findUnique({
+      where: { id },
+      include: { classes: { select: { id: true } } }
+    })
+
+    if (!school) {
+      return NextResponse.json({ error: 'Okul bulunamadi' }, { status: 404 })
+    }
+
+    const classIds = school.classes.map(c => c.id)
+
+    // Bagli tum verileri sirayla sil
+    if (classIds.length > 0) {
+      // 1. Siparis iptal taleplerini sil
+      await prisma.cancelRequest.deleteMany({
+        where: { order: { classId: { in: classIds } } }
+      })
+
+      // 2. Siparisleri sil
+      await prisma.order.deleteMany({
+        where: { classId: { in: classIds } }
+      })
+
+      // 3. Siniflari sil
+      await prisma.class.deleteMany({
+        where: { schoolId: id }
+      })
+    }
+
+    // 4. Okul hakedislerini sil
+    await prisma.schoolPayment.deleteMany({
       where: { schoolId: id }
     })
 
-    if (classCount > 0) {
-      return NextResponse.json(
-        { error: 'Bu okula bagli siniflar var. Oncellikle siniflari silin.' },
-        { status: 400 }
-      )
-    }
-
-    const school = await prisma.school.delete({
+    // 5. Okulu sil
+    await prisma.school.delete({
       where: { id }
     })
 

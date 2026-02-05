@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   BarChart3, TrendingUp, Users, Package, ShoppingCart
 } from "lucide-react"
+import { formatNumber } from "@/lib/utils"
 
 interface OrderItem {
   status: string
@@ -52,19 +53,19 @@ async function getSchoolReports(schoolId: string) {
     packageName: cls.package?.name || 'Paket yok',
     orderCount: cls.orders.length,
     revenue: cls.orders
-      .filter((o: OrderItem) => !['CANCELLED', 'REFUNDED'].includes(o.status))
+      .filter((o: OrderItem) => o.status !== 'CANCELLED')
       .reduce((acc: number, o: OrderItem) => acc + Number(o.totalAmount), 0)
   })).sort((a, b) => b.orderCount - a.orderCount)
 
   const totalRevenue = allOrders
-    .filter((o: OrderItem) => !['CANCELLED', 'REFUNDED'].includes(o.status))
+    .filter((o: OrderItem) => o.status !== 'CANCELLED')
     .reduce((acc: number, o: OrderItem) => acc + Number(o.totalAmount), 0)
 
   return {
     school,
     totalOrders: allOrders.length,
     completedOrders: allOrders.filter((o: OrderItem) => o.status === 'COMPLETED').length,
-    cancelledOrders: allOrders.filter((o: OrderItem) => ['CANCELLED', 'REFUNDED'].includes(o.status)).length,
+    cancelledOrders: allOrders.filter((o: OrderItem) => o.status === 'CANCELLED').length,
     totalRevenue,
     ordersByStatus,
     ordersByDeliveryType,
@@ -74,17 +75,12 @@ async function getSchoolReports(schoolId: string) {
 }
 
 const statusLabels: Record<string, string> = {
-  NEW: "Yeni",
-  PAYMENT_PENDING: "Odeme Bekleniyor",
-  PAYMENT_RECEIVED: "Odeme Alindi",
-  CONFIRMED: "Onaylandi",
-  INVOICED: "Faturalandi",
-  CARGO_SHIPPED: "Kargoda",
-  DELIVERED_TO_SCHOOL: "Okula Teslim",
-  DELIVERED_BY_CARGO: "Teslim Edildi",
-  COMPLETED: "Tamamlandi",
-  CANCELLED: "Iptal",
-  REFUNDED: "Iade"
+  PAID: "Ödendi",
+  PREPARING: "Hazırlanıyor",
+  SHIPPED: "Kargoda",
+  DELIVERED: "Teslim Edildi",
+  COMPLETED: "Tamamlandı",
+  CANCELLED: "İptal Edildi"
 }
 
 export default async function MudurRaporlarPage() {
@@ -142,7 +138,7 @@ export default async function MudurRaporlarPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.totalRevenue.toLocaleString('tr-TR')} TL
+              {formatNumber(data.totalRevenue)} TL
             </div>
           </CardContent>
         </Card>
@@ -252,7 +248,7 @@ export default async function MudurRaporlarPage() {
                       <p className="text-xs text-gray-500">siparis</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold">{cls.revenue.toLocaleString('tr-TR')} TL</p>
+                      <p className="font-bold">{formatNumber(cls.revenue)} TL</p>
                     </div>
                   </div>
                 ))}

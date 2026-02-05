@@ -2,14 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSession } from '@/lib/auth'
 import { logAction } from '@/lib/logger'
-
-// Okul sifresi olustur
-function generateSchoolPassword(schoolName: string): string {
-  const year = new Date().getFullYear()
-  const prefix = schoolName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, 'X')
-  const random = Math.random().toString(36).substring(2, 7).toUpperCase()
-  return `${year}-${prefix}-${random}`
-}
+import { generateSchoolPassword } from '@/lib/password-generator'
 
 export async function POST(
   request: Request,
@@ -29,23 +22,37 @@ export async function POST(
     })
 
     if (!school) {
-      return NextResponse.json(
-        { error: 'Okul bulunamadi' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Okul bulunamadi' }, { status: 404 })
     }
 
-    // Yeni sifre olustur
-    const newPassword = generateSchoolPassword(school.name)
+    // Benzersiz sifre olustur
+    let newPassword: string = ''
+    let isUnique = false
+    let attempt = 0
+
+    while (!isUnique && attempt < 10) {
+      newPassword = generateSchoolPassword()
+      const existing = await prisma.school.findFirst({
+        where: {
+          password: newPassword,
+          id: { not: id }
+        }
+      })
+      if (!existing) isUnique = true
+      attempt++
+    }
+
+    if (!newPassword || !isUnique) {
+      return NextResponse.json(
+        { error: 'Benzersiz sifre olusturulamadi, tekrar deneyin' },
+        { status: 500 }
+      )
+    }
 
     // Sifreyi guncelle
     const updatedSchool = await prisma.school.update({
       where: { id },
-      data: {
-        password: newPassword,
-        passwordGeneratedAt: new Date(),
-        passwordChangedBy: session.id
-      }
+      data: { password: newPassword }
     })
 
     await logAction({
@@ -53,11 +60,8 @@ export async function POST(
       userType: 'ADMIN',
       action: 'UPDATE',
       entity: 'SCHOOL',
-      entityId: id,
-      details: {
-        action: 'REGENERATE_PASSWORD',
-        schoolName: school.name
-      }
+      entityId: school.id,
+      details: { action: 'password_regenerated' }
     })
 
     return NextResponse.json({
@@ -65,7 +69,7 @@ export async function POST(
       password: updatedSchool.password
     })
   } catch (error) {
-    console.error('Sifre yenilenirken hata:', error)
+    console.error('Sifre yenilenemedi:', error)
     return NextResponse.json(
       { error: 'Sifre yenilenemedi' },
       { status: 500 }

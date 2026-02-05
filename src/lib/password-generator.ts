@@ -1,13 +1,13 @@
 // Turkce renk isimleri (buyuk harf)
 const COLORS = [
   'KIRMIZI', 'MAVI', 'YESIL', 'SARI', 'TURUNCU', 'MOR', 'PEMBE', 'GRI',
-  'BEYAZ', 'SIYAH', 'KAHVE', 'LACIVERT', 'TURKUAZ', 'BORDO', 'BEJB'
+  'BEYAZ', 'SIYAH', 'KAHVE', 'LACIVERT', 'TURKUAZ', 'BORDO', 'BEJ'
 ]
 
 // Turkce hayvan isimleri
 const ANIMALS = [
   'ASLAN', 'KAPLAN', 'KARTAL', 'YUNUS', 'PANDA', 'KURT', 'TILKI',
-  'TAVSAN', 'KELEBEK', 'ARICI', 'BAYKUS', 'PAPAGAN', 'GEYIK', 'ATICIK'
+  'TAVSAN', 'KELEBEK', 'ARICI', 'BAYKUS', 'PAPAGAN', 'GEYIK', 'SINCAP'
 ]
 
 export type PasswordType = 'readable' | 'random' | 'numeric'

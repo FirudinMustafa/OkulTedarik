@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,8 +13,16 @@ import {
 } from "@/components/ui/dialog"
 import {
   BookOpen, Search, ArrowLeft, Loader2, Package, Truck, School,
-  CheckCircle, Clock, XCircle, FileText, CreditCard
+  CheckCircle, Clock, XCircle
 } from "lucide-react"
+import { formatDateTime, formatPrice } from "@/lib/utils"
+
+interface CancelRequestData {
+  status: "PENDING" | "APPROVED" | "REJECTED"
+  adminNote: string | null
+  processedAt: string | null
+  reason: string | null
+}
 
 interface OrderData {
   id: string
@@ -33,25 +41,33 @@ interface OrderData {
   paidAt: string | null
   shippedAt: string | null
   deliveredAt: string | null
-  hasCancelRequest?: boolean
+  cancelRequest?: CancelRequestData | null
 }
 
 const statusLabels: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
-  NEW: { label: "Yeni Siparis", color: "bg-blue-500", icon: <Clock className="h-4 w-4" /> },
-  PAYMENT_PENDING: { label: "Odeme Bekleniyor", color: "bg-yellow-500", icon: <CreditCard className="h-4 w-4" /> },
-  PAYMENT_RECEIVED: { label: "Odeme Alindi", color: "bg-green-500", icon: <CheckCircle className="h-4 w-4" /> },
-  CONFIRMED: { label: "Onaylandi", color: "bg-green-600", icon: <CheckCircle className="h-4 w-4" /> },
-  INVOICED: { label: "Fatura Kesildi", color: "bg-purple-500", icon: <FileText className="h-4 w-4" /> },
-  CARGO_SHIPPED: { label: "Kargoya Verildi", color: "bg-indigo-500", icon: <Truck className="h-4 w-4" /> },
-  DELIVERED_TO_SCHOOL: { label: "Okula Teslim Edildi", color: "bg-teal-500", icon: <School className="h-4 w-4" /> },
-  DELIVERED_BY_CARGO: { label: "Kargo Teslim Etti", color: "bg-teal-500", icon: <Package className="h-4 w-4" /> },
-  COMPLETED: { label: "Tamamlandi", color: "bg-green-700", icon: <CheckCircle className="h-4 w-4" /> },
-  CANCELLED: { label: "Iptal Edildi", color: "bg-red-500", icon: <XCircle className="h-4 w-4" /> },
-  REFUNDED: { label: "Iade Edildi", color: "bg-orange-500", icon: <XCircle className="h-4 w-4" /> }
+  PAID: { label: "Ödendi", color: "bg-blue-500", icon: <CheckCircle className="h-4 w-4" /> },
+  PREPARING: { label: "Hazırlanıyor", color: "bg-amber-500", icon: <Clock className="h-4 w-4" /> },
+  SHIPPED: { label: "Kargoda", color: "bg-purple-500", icon: <Truck className="h-4 w-4" /> },
+  DELIVERED: { label: "Teslim Edildi", color: "bg-green-500", icon: <Package className="h-4 w-4" /> },
+  COMPLETED: { label: "Tamamlandı", color: "bg-green-700", icon: <CheckCircle className="h-4 w-4" /> },
+  CANCELLED: { label: "İptal Edildi", color: "bg-red-500", icon: <XCircle className="h-4 w-4" /> }
 }
 
-export default function SiparisTakipPage() {
+export default function SiparisTakipPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      </div>
+    }>
+      <SiparisTakipPage />
+    </Suspense>
+  )
+}
+
+function SiparisTakipPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [orderNumber, setOrderNumber] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -61,14 +77,22 @@ export default function SiparisTakipPage() {
   const [cancelLoading, setCancelLoading] = useState(false)
   const [cancelSuccess, setCancelSuccess] = useState(false)
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
+  // URL'den siparis numarasini oku ve otomatik sorgula
+  useEffect(() => {
+    const urlOrderNumber = searchParams.get('orderNumber')
+    if (urlOrderNumber) {
+      setOrderNumber(urlOrderNumber.toUpperCase())
+      searchOrder(urlOrderNumber.toUpperCase())
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const searchOrder = async (searchNumber: string) => {
     setError("")
     setOrder(null)
     setLoading(true)
 
     try {
-      const res = await fetch(`/api/veli/order?orderNumber=${orderNumber.toUpperCase()}`)
+      const res = await fetch(`/api/veli/order?orderNumber=${searchNumber}`)
       const data = await res.json()
 
       if (!res.ok) {
@@ -84,9 +108,14 @@ export default function SiparisTakipPage() {
     }
   }
 
-  const formatDate = (dateString: string | null) => {
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    await searchOrder(orderNumber.toUpperCase())
+  }
+
+  const formatDateOrDash = (dateString: string | null) => {
     if (!dateString) return "-"
-    return new Date(dateString).toLocaleString("tr-TR")
+    return formatDateTime(dateString)
   }
 
   const getStatusInfo = (status: string) => {
@@ -117,8 +146,8 @@ export default function SiparisTakipPage() {
       setCancelSuccess(true)
       setCancelDialogOpen(false)
       setCancelReason("")
-      // Siparisi guncelle
-      setOrder({ ...order, hasCancelRequest: true })
+      // Siparisi guncelle - yeni PENDING talebi goster
+      setOrder({ ...order, cancelRequest: { status: 'PENDING', adminNote: null, processedAt: null, reason: cancelReason.trim() } })
     } catch {
       setError("Iptal talebi gonderilirken hata olustu")
     } finally {
@@ -201,19 +230,19 @@ export default function SiparisTakipPage() {
                   <div className={`relative pl-10 ${order.createdAt ? "text-green-600" : "text-gray-400"}`}>
                     <div className={`absolute left-2 w-4 h-4 rounded-full ${order.createdAt ? "bg-green-500" : "bg-gray-300"}`} />
                     <p className="font-medium">Siparis Olusturuldu</p>
-                    <p className="text-sm">{formatDate(order.createdAt)}</p>
+                    <p className="text-sm">{formatDateOrDash(order.createdAt)}</p>
                   </div>
                   <div className={`relative pl-10 ${order.paidAt ? "text-green-600" : "text-gray-400"}`}>
                     <div className={`absolute left-2 w-4 h-4 rounded-full ${order.paidAt ? "bg-green-500" : "bg-gray-300"}`} />
                     <p className="font-medium">Odeme Alindi</p>
-                    <p className="text-sm">{formatDate(order.paidAt)}</p>
+                    <p className="text-sm">{formatDateOrDash(order.paidAt)}</p>
                   </div>
                   {order.deliveryType === "CARGO" ? (
                     <>
                       <div className={`relative pl-10 ${order.shippedAt ? "text-green-600" : "text-gray-400"}`}>
                         <div className={`absolute left-2 w-4 h-4 rounded-full ${order.shippedAt ? "bg-green-500" : "bg-gray-300"}`} />
                         <p className="font-medium">Kargoya Verildi</p>
-                        <p className="text-sm">{formatDate(order.shippedAt)}</p>
+                        <p className="text-sm">{formatDateOrDash(order.shippedAt)}</p>
                         {order.trackingNo && (
                           <p className="text-sm mt-1">
                             Takip No: <span className="font-mono font-medium">{order.trackingNo}</span>
@@ -223,14 +252,14 @@ export default function SiparisTakipPage() {
                       <div className={`relative pl-10 ${order.deliveredAt ? "text-green-600" : "text-gray-400"}`}>
                         <div className={`absolute left-2 w-4 h-4 rounded-full ${order.deliveredAt ? "bg-green-500" : "bg-gray-300"}`} />
                         <p className="font-medium">Teslim Edildi</p>
-                        <p className="text-sm">{formatDate(order.deliveredAt)}</p>
+                        <p className="text-sm">{formatDateOrDash(order.deliveredAt)}</p>
                       </div>
                     </>
                   ) : (
                     <div className={`relative pl-10 ${order.deliveredAt ? "text-green-600" : "text-gray-400"}`}>
                       <div className={`absolute left-2 w-4 h-4 rounded-full ${order.deliveredAt ? "bg-green-500" : "bg-gray-300"}`} />
                       <p className="font-medium">Okula Teslim Edildi</p>
-                      <p className="text-sm">{formatDate(order.deliveredAt)}</p>
+                      <p className="text-sm">{formatDateOrDash(order.deliveredAt)}</p>
                     </div>
                   )}
                 </div>
@@ -264,25 +293,81 @@ export default function SiparisTakipPage() {
                 </div>
                 <div>
                   <p className="text-gray-500">Toplam Tutar</p>
-                  <p className="font-medium text-blue-600">{Number(order.totalAmount).toFixed(2)} TL</p>
+                  <p className="font-medium text-blue-600">{formatPrice(order.totalAmount)} TL</p>
                 </div>
               </div>
             </CardContent>
+            {/* Iptal Talebi Durum Bilgilendirmesi */}
+            {order.cancelRequest && (
+              <div className="px-6 pb-2">
+                {order.cancelRequest.status === 'PENDING' && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <Clock className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-yellow-800">Iptal Talebiniz Inceleniyor</p>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          Talebiniz admin tarafindan degerlendiriliyor. Sonuc hakkinda bilgilendirileceksiniz.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {order.cancelRequest.status === 'REJECTED' && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-red-800">Iptal Talebiniz Reddedildi</p>
+                        {order.cancelRequest.adminNote && (
+                          <p className="text-sm text-red-700 mt-1">
+                            <span className="font-medium">Gerekcesi:</span> {order.cancelRequest.adminNote}
+                          </p>
+                        )}
+                        {order.cancelRequest.processedAt && (
+                          <p className="text-xs text-red-500 mt-1">
+                            {formatDateTime(order.cancelRequest.processedAt)}
+                          </p>
+                        )}
+                        <p className="text-sm text-red-600 mt-2">
+                          Isterseniz yeni bir iptal talebi olusturabilirsiniz.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {order.cancelRequest.status === 'APPROVED' && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-medium text-green-800">Iptal Talebiniz Onaylandi</p>
+                        <p className="text-sm text-green-700 mt-1">
+                          Siparisiz iptal edilmistir. Iade islemi baslatilmistir.
+                        </p>
+                        {order.cancelRequest.processedAt && (
+                          <p className="text-xs text-green-500 mt-1">
+                            {formatDateTime(order.cancelRequest.processedAt)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <CardFooter className="flex justify-between">
               <Button variant="outline" onClick={() => setOrder(null)}>
                 Yeni Sorgulama
               </Button>
-              {/* Iptal butonu - sadece belirli durumlarda goster */}
-              {["NEW", "PAYMENT_PENDING", "PAYMENT_RECEIVED", "CONFIRMED"].includes(order.status) && !order.hasCancelRequest && !cancelSuccess && (
+              {/* Iptal butonu - iptal edilebilir durumlarda ve aktif PENDING talep yoksa goster */}
+              {["PAID", "PREPARING"].includes(order.status) &&
+                (!order.cancelRequest || order.cancelRequest.status === 'REJECTED') &&
+                !cancelSuccess && (
                 <Button variant="destructive" size="sm" onClick={() => setCancelDialogOpen(true)}>
-                  Iptal Talebi
+                  {order.cancelRequest?.status === 'REJECTED' ? 'Tekrar Iptal Talebi' : 'Iptal Talebi'}
                 </Button>
-              )}
-              {(order.hasCancelRequest || cancelSuccess) && (
-                <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                  <Clock className="h-3 w-3 mr-1" />
-                  Iptal Talebi Beklemede
-                </Badge>
               )}
             </CardFooter>
           </Card>

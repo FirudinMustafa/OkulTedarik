@@ -29,7 +29,7 @@ export interface InvoiceResult {
   errorMessage?: string
 }
 
-const USE_MOCK = process.env.USE_MOCK_INVOICE === 'true'
+const USE_MOCK = process.env.USE_MOCK_INVOICE !== 'false'
 
 /**
  * E-Fatura olustur

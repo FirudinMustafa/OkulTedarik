@@ -13,11 +13,16 @@ export async function POST(request: Request) {
       classId,
       parentName,
       studentName,
+      studentSection,
       phone,
       email,
       address,
+      deliveryAddress,
+      invoiceAddress,
+      invoiceAddressSame,
       paymentMethod,
       isCorporateInvoice,
+      companyTitle,
       taxNumber,
       taxOffice,
       orderNote
@@ -63,7 +68,7 @@ export async function POST(request: Request) {
         classId,
         studentName: studentName.trim(),
         status: {
-          notIn: ['CANCELLED', 'REFUNDED']
+          notIn: ['CANCELLED']
         }
       }
     })
@@ -87,15 +92,21 @@ export async function POST(request: Request) {
         orderNumber,
         parentName: parentName.trim(),
         studentName: studentName.trim(),
+        studentSection: studentSection || null,
         phone: phone.replace(/\s/g, ''),
         email: email || null,
         address: address || null,
+        deliveryAddress: deliveryAddress || null,
+        invoiceAddress: invoiceAddress || null,
+        invoiceAddressSame: invoiceAddressSame ?? true,
+        orderNote: orderNote || null,
         totalAmount: classData.package.price,
-        status: paymentMethod === 'CASH_ON_DELIVERY' ? 'CONFIRMED' : 'PAYMENT_PENDING',
+        status: 'PAID',
         paymentMethod: paymentMethod || 'CREDIT_CARD',
         isCorporateInvoice: isCorporateInvoice || false,
-        taxNumber: taxNumber || null,
-        taxOffice: taxOffice || null,
+        companyTitle: isCorporateInvoice ? (companyTitle || null) : null,
+        taxNumber: isCorporateInvoice ? (taxNumber || null) : null,
+        taxOffice: isCorporateInvoice ? (taxOffice || null) : null,
         classId,
         packageId: classData.package.id
       }
@@ -216,7 +227,10 @@ export async function GET(request: Request) {
         cancelRequest: {
           select: {
             id: true,
-            status: true
+            status: true,
+            adminNote: true,
+            processedAt: true,
+            reason: true
           }
         }
       }
@@ -246,7 +260,12 @@ export async function GET(request: Request) {
       paidAt: order.paidAt,
       shippedAt: order.shippedAt,
       deliveredAt: order.deliveredAt,
-      hasCancelRequest: !!order.cancelRequest
+      cancelRequest: order.cancelRequest ? {
+        status: order.cancelRequest.status,
+        adminNote: order.cancelRequest.adminNote,
+        processedAt: order.cancelRequest.processedAt,
+        reason: order.cancelRequest.reason
+      } : null
     })
 
   } catch (error) {

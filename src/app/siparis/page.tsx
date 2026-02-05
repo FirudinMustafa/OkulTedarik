@@ -3,13 +3,27 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { formatNumber } from '@/lib/utils'
+
+interface PackageItem {
+  id: string
+  name: string
+  quantity: number
+}
+
+interface Package {
+  id: string
+  name: string
+  description: string | null
+  note: string | null
+  price: number
+  items: PackageItem[]
+}
 
 interface ClassInfo {
   id: string
   name: string
-  packageId: string
-  packageName: string
-  packagePrice: number
+  package: Package | null
 }
 
 interface SchoolData {
@@ -20,19 +34,6 @@ interface SchoolData {
 }
 
 export default function SiparisPage() {
-  const [schoolData, setSchoolData] = useState<SchoolData | null>(null)
-  const [currentStep, setCurrentStep] = useState(1)
-
-  const handlePasswordSuccess = (data: SchoolData) => {
-    setSchoolData(data)
-    setCurrentStep(2)
-  }
-
-  const handleBack = () => {
-    setSchoolData(null)
-    setCurrentStep(1)
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50/30 to-purple-50/50 relative">
       {/* Decorative Blobs */}
@@ -41,12 +42,7 @@ export default function SiparisPage() {
 
       <OrderHeader />
       <main className="relative z-10 min-h-[calc(100vh-80px)] flex flex-col items-center justify-center px-4 py-12">
-        <Stepper currentStep={currentStep} />
-        {currentStep === 1 ? (
-          <SchoolPasswordCard onSuccess={handlePasswordSuccess} />
-        ) : (
-          <ClassSelectionCard schoolData={schoolData!} onBack={handleBack} />
-        )}
+        <SchoolPasswordFlow />
       </main>
     </div>
   )
@@ -70,91 +66,42 @@ function OrderHeader() {
             </div>
           </Link>
 
-          {/* Right side - minimal */}
-          <Link
-            href="/"
-            className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-2 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-            Ana Sayfa
-          </Link>
+          {/* Right side */}
+          <div className="flex items-center gap-4">
+            <Link
+              href="/siparis-takip"
+              className="text-sm text-gray-600 hover:text-blue-600 flex items-center gap-2 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              Siparis Takip
+            </Link>
+            <Link
+              href="/"
+              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-2 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Ana Sayfa
+            </Link>
+          </div>
         </div>
       </div>
     </header>
   )
 }
 
-// ==================== STEPPER ====================
-function Stepper({ currentStep }: { currentStep: number }) {
-  const steps = [
-    { number: 1, label: 'Okul Girisi' },
-    { number: 2, label: 'Sinif Secimi' },
-    { number: 3, label: 'Siparis' }
-  ]
-
-  return (
-    <div className="w-full max-w-lg mx-auto mb-8">
-      <div className="flex items-center justify-between relative">
-        {/* Progress Line Background */}
-        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-gray-200 rounded-full mx-12" />
-
-        {/* Progress Line Active */}
-        <div
-          className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-blue-600 rounded-full mx-12 transition-all duration-500"
-          style={{ width: `calc(${((currentStep - 1) / (steps.length - 1)) * 100}% - 6rem)` }}
-        />
-
-        {steps.map((step) => {
-          const isActive = step.number === currentStep
-          const isCompleted = step.number < currentStep
-          const isPending = step.number > currentStep
-
-          return (
-            <div key={step.number} className="relative z-10 flex flex-col items-center">
-              {/* Step Circle */}
-              <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/40 scale-110'
-                    : isCompleted
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-400 border-2 border-gray-200'
-                }`}
-              >
-                {isCompleted ? (
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                ) : (
-                  step.number
-                )}
-              </div>
-
-              {/* Step Label */}
-              <span
-                className={`mt-3 text-sm font-medium transition-colors ${
-                  isActive ? 'text-blue-600' : isPending ? 'text-gray-400' : 'text-gray-600'
-                }`}
-              >
-                {step.label}
-              </span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-// ==================== SCHOOL PASSWORD CARD ====================
-function SchoolPasswordCard({ onSuccess }: { onSuccess: (data: SchoolData) => void }) {
+// ==================== SCHOOL PASSWORD FLOW ====================
+function SchoolPasswordFlow() {
+  const router = useRouter()
   const [password, setPassword] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [schoolData, setSchoolData] = useState<SchoolData | null>(null)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!password.trim()) {
@@ -180,19 +127,131 @@ function SchoolPasswordCard({ onSuccess }: { onSuccess: (data: SchoolData) => vo
         return
       }
 
-      // Success - show class selection
-      onSuccess({
+      // Basarili - okul ve sinif bilgilerini goster
+      setSchoolData({
         schoolId: data.schoolId,
         schoolName: data.schoolName,
         deliveryType: data.deliveryType,
         classes: data.classes
       })
+
+      setIsValidating(false)
     } catch {
       setErrorMessage('Bir hata olustu. Lutfen tekrar deneyin.')
       setIsValidating(false)
     }
   }
 
+  const handleClassSelect = (cls: ClassInfo) => {
+    if (!cls.package || !schoolData) return
+
+    // Secilen sinif bilgilerini sessionStorage'a kaydet
+    sessionStorage.setItem('classData', JSON.stringify({
+      classId: cls.id,
+      className: cls.name,
+      schoolId: schoolData.schoolId,
+      schoolName: schoolData.schoolName,
+      deliveryType: schoolData.deliveryType,
+      package: cls.package
+    }))
+
+    // Paket sayfasina yonlendir
+    router.push(`/paket/${cls.id}`)
+  }
+
+  // Sinif secim ekrani
+  if (schoolData) {
+    return (
+      <div className="w-full max-w-2xl">
+        {/* School Info Card */}
+        <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 p-8 lg:p-10 border border-gray-100/50">
+          {/* Back Button */}
+          <button
+            onClick={() => setSchoolData(null)}
+            className="flex items-center gap-2 text-gray-500 hover:text-gray-700 mb-6 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Geri
+          </button>
+
+          {/* School Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center">
+              <svg className="w-8 h-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{schoolData.schoolName}</h2>
+              <p className="text-gray-500">
+                {schoolData.deliveryType === 'CARGO' ? 'Kargo ile Teslim' : 'Okula Teslim'}
+              </p>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Sinif Seciniz
+            </h1>
+            <p className="text-gray-500">
+              Ogrencinin sinifini secin ve paketi goruntuleyin
+            </p>
+          </div>
+
+          {/* Class List */}
+          <div className="space-y-3">
+            {schoolData.classes.map((cls) => (
+              <button
+                key={cls.id}
+                onClick={() => handleClassSelect(cls)}
+                disabled={!cls.package}
+                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
+                  cls.package
+                    ? 'border-gray-200 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer'
+                    : 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-60'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                      cls.package ? 'bg-blue-100 text-blue-600' : 'bg-gray-200 text-gray-400'
+                    }`}>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.26 10.147a60.438 60.438 0 0 0-.491 6.347A48.62 48.62 0 0 1 12 20.904a48.62 48.62 0 0 1 8.232-4.41 60.46 60.46 0 0 0-.491-6.347m-15.482 0a50.636 50.636 0 0 0-2.658-.813A59.906 59.906 0 0 1 12 3.493a59.903 59.903 0 0 1 10.399 5.84c-.896.248-1.783.52-2.658.814m-15.482 0A50.717 50.717 0 0 1 12 13.489a50.702 50.702 0 0 1 7.74-3.342M6.75 15a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm0 0v-3.675A55.378 55.378 0 0 1 12 8.443m-7.007 11.55A5.981 5.981 0 0 0 6.75 15.75v-1.5" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{cls.name}</p>
+                      {cls.package ? (
+                        <p className="text-sm text-gray-500">{cls.package.name}</p>
+                      ) : (
+                        <p className="text-sm text-gray-400">Paket tanimlanmamis</p>
+                      )}
+                    </div>
+                  </div>
+                  {cls.package && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg font-bold text-blue-600">
+                        {formatNumber(Number(cls.package.price))} TL
+                      </span>
+                      <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Sifre giris ekrani
   return (
     <div className="w-full max-w-md">
       {/* Main Card */}
@@ -201,7 +260,7 @@ function SchoolPasswordCard({ onSuccess }: { onSuccess: (data: SchoolData) => vo
         <div className="flex justify-center mb-6">
           <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center">
             <svg className="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
             </svg>
           </div>
         </div>
@@ -212,12 +271,12 @@ function SchoolPasswordCard({ onSuccess }: { onSuccess: (data: SchoolData) => vo
             Okul Sifrenizi Girin
           </h1>
           <p className="text-gray-500">
-            Okulunuzdan aldiginiz sifreyi girerek devam edin
+            Okulunuzdan aldiginiz sifre ile devam edin
           </p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handlePasswordSubmit} className="space-y-6">
           <div>
             <label htmlFor="schoolPassword" className="block text-sm font-medium text-gray-700 mb-2">
               Okul Sifresi
@@ -230,9 +289,9 @@ function SchoolPasswordCard({ onSuccess }: { onSuccess: (data: SchoolData) => vo
                 setPassword(e.target.value.toUpperCase())
                 setErrorMessage('')
               }}
-              placeholder="Orn: 2026-ATA-ABC12"
+              placeholder="Orn: ATATURK2024"
               disabled={isValidating}
-              className={`w-full px-5 py-4 text-lg border-2 rounded-2xl transition-all outline-none font-mono tracking-wider ${
+              className={`w-full px-5 py-4 text-lg border-2 rounded-2xl transition-all outline-none font-mono tracking-wider text-center ${
                 errorMessage
                   ? 'border-red-300 bg-red-50 focus:border-red-500'
                   : 'border-gray-200 bg-gray-50/50 focus:border-blue-500 focus:bg-white'
@@ -287,7 +346,7 @@ function SchoolPasswordCard({ onSuccess }: { onSuccess: (data: SchoolData) => vo
             <h3 className="font-semibold text-gray-900 mb-1">Okul sifresi nedir?</h3>
             <p className="text-sm text-gray-600 leading-relaxed">
               Okul sifresi, okulunuza ozel olusturulan bir sifredir.
-              Sinif ogretmeninizden veya okul mudurlugunden alabilirsiniz.
+              Okul mudurlugunden veya sinif ogretmeninizden alabilirsiniz.
             </p>
           </div>
         </div>
@@ -306,100 +365,6 @@ function SchoolPasswordCard({ onSuccess }: { onSuccess: (data: SchoolData) => vo
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
           <span>Guvenli Baglanti</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ==================== CLASS SELECTION CARD ====================
-function ClassSelectionCard({ schoolData, onBack }: { schoolData: SchoolData; onBack: () => void }) {
-  const router = useRouter()
-  const [selectedClassId, setSelectedClassId] = useState('')
-
-  const handleContinue = () => {
-    if (selectedClassId) {
-      router.push(`/paket/${selectedClassId}`)
-    }
-  }
-
-  return (
-    <div className="w-full max-w-md">
-      {/* Main Card */}
-      <div className="bg-white rounded-3xl shadow-xl shadow-gray-200/50 p-8 lg:p-10 border border-gray-100/50">
-        {/* School Info */}
-        <div className="flex items-center justify-center gap-3 mb-6 p-4 bg-blue-50 rounded-2xl">
-          <svg className="w-6 h-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
-          </svg>
-          <span className="font-semibold text-blue-900">{schoolData.schoolName}</span>
-        </div>
-
-        {/* Title */}
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Sinif Seciniz
-          </h1>
-          <p className="text-gray-500">
-            Ogrencinin sinifini secin
-          </p>
-        </div>
-
-        {/* Class List */}
-        <div className="space-y-3 mb-6">
-          {schoolData.classes.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>Bu okul icin paket tanimli sinif bulunamadi.</p>
-            </div>
-          ) : (
-            schoolData.classes.map((cls) => (
-              <button
-                key={cls.id}
-                type="button"
-                onClick={() => setSelectedClassId(cls.id)}
-                className={`w-full p-4 rounded-2xl border-2 text-left transition-all ${
-                  selectedClassId === cls.id
-                    ? 'border-blue-500 bg-blue-50'
-                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-gray-900">{cls.name}</p>
-                    <p className="text-sm text-gray-500">{cls.packageName}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-blue-600">{Number(cls.packagePrice).toFixed(2)} TL</p>
-                  </div>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-
-        {/* Buttons */}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex-1 py-4 rounded-2xl border-2 border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
-            </svg>
-            <span>Geri</span>
-          </button>
-          <button
-            type="button"
-            onClick={handleContinue}
-            disabled={!selectedClassId}
-            className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold py-4 rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/40 disabled:shadow-none"
-          >
-            <span>Devam Et</span>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-            </svg>
-          </button>
         </div>
       </div>
     </div>
