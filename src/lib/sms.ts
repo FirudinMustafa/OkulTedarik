@@ -1,6 +1,6 @@
 /**
- * SMS Servisi (Mock)
- * Gercek SMS API bilgileri verildiginde bu dosya guncellenecek
+ * SMS Servisi - Twilio API
+ * USE_MOCK_SMS=false ise Twilio uzerinden gercek SMS gonderir
  */
 
 export interface SMSResult {
@@ -10,6 +10,57 @@ export interface SMSResult {
 }
 
 const USE_MOCK = process.env.USE_MOCK_SMS !== 'false'
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || ''
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || ''
+const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || ''
+
+function formatPhone(phone: string): string {
+  // 05xx -> +905xx formatina cevir
+  const cleaned = phone.replace(/\s+/g, '').replace(/-/g, '')
+  if (cleaned.startsWith('0') && cleaned.length === 11) {
+    return '+9' + cleaned
+  }
+  if (cleaned.startsWith('+')) return cleaned
+  if (cleaned.startsWith('9') && cleaned.length === 12) return '+' + cleaned
+  return '+90' + cleaned
+}
+
+async function sendViaTwilio(phone: string, message: string): Promise<SMSResult> {
+  const to = formatPhone(phone)
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`
+  const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64')
+
+  const body = new URLSearchParams({
+    From: TWILIO_PHONE_NUMBER,
+    To: to,
+    Body: message
+  })
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: body.toString()
+  })
+
+  const json = await res.json()
+
+  if (!res.ok) {
+    console.error(`[TWILIO] SMS gonderilemedi: ${json.message} (code: ${json.code})`)
+    return {
+      success: false,
+      errorMessage: json.message || 'SMS gonderilemedi'
+    }
+  }
+
+  console.log(`[TWILIO] SMS gonderildi: ${to} - SID: ${json.sid} Status: ${json.status}`)
+  return {
+    success: true,
+    messageId: json.sid
+  }
+}
 
 export async function sendSMS(data: { to: string; message: string }): Promise<SMSResult> {
   return sendSMSInternal(data.to, data.message)
@@ -30,16 +81,14 @@ async function sendSMSInternal(phone: string, message: string): Promise<SMSResul
     }
   }
 
-  // TODO: Gercek SMS servisi entegrasyonu (Netgsm, Ileti Merkezi, vb.)
-  throw new Error('Gercek SMS servisi henuz yapilandirilmadi')
+  return sendViaTwilio(phone, message)
 }
 
 /**
  * Siparis onay SMS
  */
 export async function sendOrderSMS(phone: string, orderNumber: string): Promise<SMSResult> {
-  const message = `Siparisini alindi. Siparis No: ${orderNumber}. Takip icin web sitemizi ziyaret edin.`
-  console.log(`[MOCK SMS] Siparis onay SMS gonderiliyor: ${phone}`)
+  const message = `Siparisiniz alindi. Siparis No: ${orderNumber}. Takip icin web sitemizi ziyaret edin. - OkulTedarigim.com`
   return sendSMSInternal(phone, message)
 }
 
@@ -47,8 +96,7 @@ export async function sendOrderSMS(phone: string, orderNumber: string): Promise<
  * Odeme onay SMS
  */
 export async function sendPaymentSMS(phone: string, orderNumber: string, amount: number): Promise<SMSResult> {
-  const message = `${orderNumber} no'lu siparisini icin ${amount} TL odeme alindi. Tesekkurler!`
-  console.log(`[MOCK SMS] Odeme onay SMS gonderiliyor: ${phone}`)
+  const message = `${orderNumber} no'lu siparisiniz icin ${amount} TL odeme alindi. Tesekkurler! - OkulTedarigim.com`
   return sendSMSInternal(phone, message)
 }
 
@@ -56,8 +104,7 @@ export async function sendPaymentSMS(phone: string, orderNumber: string, amount:
  * Kargo takip SMS
  */
 export async function sendCargoTrackingSMS(phone: string, trackingNo: string): Promise<SMSResult> {
-  const message = `Kargonuz yola cikti! Takip No: ${trackingNo}`
-  console.log(`[MOCK SMS] Kargo takip SMS gonderiliyor: ${phone}`)
+  const message = `Kargonuz yola cikti! Takip No: ${trackingNo} - OkulTedarigim.com`
   return sendSMSInternal(phone, message)
 }
 
@@ -65,8 +112,7 @@ export async function sendCargoTrackingSMS(phone: string, trackingNo: string): P
  * Teslim bildirim SMS
  */
 export async function sendDeliverySMS(phone: string, orderNumber: string): Promise<SMSResult> {
-  const message = `${orderNumber} no'lu siparisini teslim edildi. Bizi tercih ettiginiz icin tesekkurler!`
-  console.log(`[MOCK SMS] Teslim bildirim SMS gonderiliyor: ${phone}`)
+  const message = `${orderNumber} no'lu siparisiniz teslim edildi. Bizi tercih ettiginiz icin tesekkurler! - OkulTedarigim.com`
   return sendSMSInternal(phone, message)
 }
 
@@ -74,7 +120,6 @@ export async function sendDeliverySMS(phone: string, orderNumber: string): Promi
  * Iptal bildirim SMS
  */
 export async function sendCancellationSMS(phone: string, orderNumber: string): Promise<SMSResult> {
-  const message = `${orderNumber} no'lu siparisini iptal edildi. Detaylar icin web sitemizi ziyaret edin.`
-  console.log(`[MOCK SMS] Iptal bildirim SMS gonderiliyor: ${phone}`)
+  const message = `${orderNumber} no'lu siparisiniz iptal edildi. Detaylar icin web sitemizi ziyaret edin. - OkulTedarigim.com`
   return sendSMSInternal(phone, message)
 }
