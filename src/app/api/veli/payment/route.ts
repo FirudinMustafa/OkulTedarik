@@ -33,7 +33,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (order.status !== 'PAID' || order.paymentId) {
+    if (order.status !== 'PAYMENT_PENDING' || order.paymentId) {
       return NextResponse.json(
         { error: 'Bu siparis icin odeme yapilamaz' },
         { status: 400 }

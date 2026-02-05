@@ -41,7 +41,7 @@ export async function POST(
       )
     }
 
-    if (!['PAID', 'PREPARING'].includes(order.status)) {
+    if (!['PAID', 'NEW', 'PREPARING'].includes(order.status)) {
       return NextResponse.json(
         { error: 'Bu siparis icin kargo olusturulamaz' },
         { status: 400 }
@@ -52,7 +52,7 @@ export async function POST(
     let invoiceNo: string | null = order.invoiceNo
 
     // OTOMATIK FATURA: Henuz faturalanmamis siparisler icin once fatura kes
-    if (order.status === 'PAID') {
+    if (['PAID', 'NEW'].includes(order.status)) {
       const invoiceResult = await createInvoice({
         orderNumber: order.orderNumber,
         customerName: order.parentName,

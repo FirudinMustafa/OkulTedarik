@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     // Iptal edilebilir durumlari kontrol et
-    const cancellableStatuses = ['PAID', 'PREPARING']
+    const cancellableStatuses = ['NEW', 'PAYMENT_PENDING', 'PAID', 'PREPARING']
     if (!cancellableStatuses.includes(order.status)) {
       return NextResponse.json(
         { error: 'Bu siparis artik iptal edilemez' },

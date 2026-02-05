@@ -96,6 +96,8 @@ export default async function MudurDashboard() {
   }
 
   const statusLabels: Record<string, string> = {
+    NEW: "Yeni",
+    PAYMENT_PENDING: "Ödeme Bekliyor",
     PAID: "Ödendi",
     PREPARING: "Hazırlanıyor",
     SHIPPED: "Kargoda",

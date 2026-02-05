@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         invoiceAddressSame: invoiceAddressSame ?? true,
         orderNote: orderNote || null,
         totalAmount: classData.package.price,
-        status: 'PAID',
+        status: paymentMethod === 'CASH_ON_DELIVERY' ? 'NEW' : 'PAYMENT_PENDING',
         paymentMethod: paymentMethod || 'CREDIT_CARD',
         isCorporateInvoice: isCorporateInvoice || false,
         companyTitle: isCorporateInvoice ? (companyTitle || null) : null,

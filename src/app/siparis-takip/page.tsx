@@ -45,6 +45,8 @@ interface OrderData {
 }
 
 const statusLabels: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
+  NEW: { label: "Yeni Sipariş", color: "bg-sky-500", icon: <Clock className="h-4 w-4" /> },
+  PAYMENT_PENDING: { label: "Ödeme Bekliyor", color: "bg-yellow-500", icon: <Clock className="h-4 w-4" /> },
   PAID: { label: "Ödendi", color: "bg-blue-500", icon: <CheckCircle className="h-4 w-4" /> },
   PREPARING: { label: "Hazırlanıyor", color: "bg-amber-500", icon: <Clock className="h-4 w-4" /> },
   SHIPPED: { label: "Kargoda", color: "bg-purple-500", icon: <Truck className="h-4 w-4" /> },

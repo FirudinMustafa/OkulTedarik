@@ -90,7 +90,7 @@ model Order {
   email              String?
   address            String?        @db.Text
   totalAmount        Decimal        @db.Decimal(10, 2)
-  status             OrderStatus    @default(PAID)
+  status             OrderStatus    @default(NEW)
   paymentMethod      PaymentMethod?
   paymentId          String?
   paymentUrl         String?
@@ -263,6 +263,8 @@ enum DeliveryType {
 }
 
 enum OrderStatus {
+  NEW
+  PAYMENT_PENDING
   PAID
   PREPARING
   SHIPPED

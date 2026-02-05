@@ -22,6 +22,8 @@ interface OrderData {
 }
 
 const statusLabels: Record<string, { label: string; bgClass: string; textClass: string; icon: string }> = {
+  NEW: { label: 'Yeni', bgClass: 'bg-sky-50 border-b border-sky-100', textClass: 'text-sky-700', icon: '🆕' },
+  PAYMENT_PENDING: { label: 'Ödeme Bekliyor', bgClass: 'bg-yellow-50 border-b border-yellow-100', textClass: 'text-yellow-700', icon: '⏳' },
   PAID: { label: 'Ödendi', bgClass: 'bg-blue-50 border-b border-blue-100', textClass: 'text-blue-700', icon: '✓' },
   PREPARING: { label: 'Hazırlanıyor', bgClass: 'bg-amber-50 border-b border-amber-100', textClass: 'text-amber-700', icon: '⏳' },
   SHIPPED: { label: 'Kargoda', bgClass: 'bg-purple-50 border-b border-purple-100', textClass: 'text-purple-700', icon: '📦' },
