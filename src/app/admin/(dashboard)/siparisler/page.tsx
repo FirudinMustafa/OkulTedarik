@@ -21,9 +21,14 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Search, ShoppingCart, Eye, FileText, Truck, X,
-  CheckCircle, CheckCheck, RefreshCw, Loader2
+  CheckCircle, CheckCheck, RefreshCw, Loader2, Printer, Download
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
+import {
+  previewShippingLabel, previewBulkLabels,
+  downloadShippingLabel, downloadBulkLabels,
+  type LabelOrder
+} from "@/lib/shipping-label"
 
 interface OrderType {
   id: string
@@ -39,10 +44,12 @@ interface OrderType {
   status: string
   paymentMethod: string | null
   createdAt: string
+  shippedAt: string | null
   class: {
     name: string
     school: { name: string }
   }
+  package: { name: string } | null
 }
 
 const statusLabels: Record<string, string> = {
@@ -80,6 +87,12 @@ export default function SiparislerPage() {
 
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [syncLoading, setSyncLoading] = useState(false)
+
+  // Etiket onizleme
+  const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null)
+  const [labelPreviewOpen, setLabelPreviewOpen] = useState(false)
+  const [labelLoading, setLabelLoading] = useState(false)
+  const [labelPreviewOrderNumber, setLabelPreviewOrderNumber] = useState<string>("")
 
   useEffect(() => { fetchOrders() }, [])
 
@@ -223,6 +236,76 @@ export default function SiparislerPage() {
     finally { setSyncLoading(false) }
   }
 
+  // Etiket onizleme/indirme
+  const toLabelOrder = (order: OrderType): LabelOrder => ({
+    orderNumber: order.orderNumber,
+    parentName: order.parentName,
+    phone: order.parentPhone,
+    deliveryAddress: order.deliveryAddress,
+    trackingNo: order.trackingNo || '',
+    totalAmount: order.totalAmount,
+    shippedAt: order.shippedAt,
+    class: order.class,
+    package: order.package || undefined
+  })
+
+  const openLabelPreview = async (order: OrderType) => {
+    if (!order.trackingNo) {
+      alert('Bu sipari\u015fte takip numaras\u0131 yok')
+      return
+    }
+    setLabelLoading(true)
+    setLabelPreviewOrderNumber(order.orderNumber)
+    try {
+      const url = await previewShippingLabel(toLabelOrder(order))
+      setLabelPreviewUrl(url)
+      setLabelPreviewOpen(true)
+    } catch (e) {
+      console.error('Etiket olusturulamadi:', e)
+      alert('Etiket olu\u015fturulamad\u0131')
+    } finally {
+      setLabelLoading(false)
+    }
+  }
+
+  const openBulkLabelPreview = async () => {
+    const labelOrders = filteredOrders
+      .filter(o => selectedOrders.has(o.id) && o.trackingNo)
+      .map(toLabelOrder)
+    if (labelOrders.length === 0) {
+      alert('Se\u00e7ilen sipari\u015flerde takip numaras\u0131 bulunamad\u0131')
+      return
+    }
+    setLabelLoading(true)
+    setLabelPreviewOrderNumber(`${labelOrders.length} adet`)
+    try {
+      const url = await previewBulkLabels(labelOrders)
+      setLabelPreviewUrl(url)
+      setLabelPreviewOpen(true)
+    } catch (e) {
+      console.error('Toplu etiket olusturulamadi:', e)
+      alert('Toplu etiket olu\u015fturulamad\u0131')
+    } finally {
+      setLabelLoading(false)
+    }
+  }
+
+  const handleDownloadLabel = async () => {
+    if (!labelPreviewUrl) return
+    const a = document.createElement('a')
+    a.href = labelPreviewUrl
+    a.download = `etiket-${labelPreviewOrderNumber}.pdf`
+    a.click()
+  }
+
+  const closeLabelPreview = () => {
+    setLabelPreviewOpen(false)
+    if (labelPreviewUrl) {
+      URL.revokeObjectURL(labelPreviewUrl)
+      setLabelPreviewUrl(null)
+    }
+  }
+
   // Secim
   const toggleSelectAll = () => {
     if (selectedOrders.size === filteredOrders.length) setSelectedOrders(new Set())
@@ -287,15 +370,25 @@ export default function SiparislerPage() {
         )
       case "SHIPPED":
         return (
-          <Button size="sm" className="text-xs h-7 bg-teal-500 hover:bg-teal-600 text-white" onClick={() => markDelivered(order.id)}>
-            <CheckCircle className="h-3 w-3 mr-1" />Teslim Edildi
-          </Button>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => openLabelPreview(order)} disabled={labelLoading} title="Kargo Etiketi">
+              {labelLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
+            </Button>
+            <Button size="sm" className="text-xs h-7 bg-teal-500 hover:bg-teal-600 text-white" onClick={() => markDelivered(order.id)}>
+              <CheckCircle className="h-3 w-3 mr-1" />Teslim Edildi
+            </Button>
+          </div>
         )
       case "DELIVERED":
         return (
-          <Button size="sm" className="text-xs h-7 bg-green-500 hover:bg-green-600 text-white" onClick={() => markCompleted(order.id)}>
-            <CheckCheck className="h-3 w-3 mr-1" />Tamamla
-          </Button>
+          <div className="flex gap-1">
+            <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => openLabelPreview(order)} disabled={labelLoading} title="Kargo Etiketi">
+              {labelLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Printer className="h-3 w-3" />}
+            </Button>
+            <Button size="sm" className="text-xs h-7 bg-green-500 hover:bg-green-600 text-white" onClick={() => markCompleted(order.id)}>
+              <CheckCheck className="h-3 w-3 mr-1" />Tamamla
+            </Button>
+          </div>
         )
       default:
         return null
@@ -363,6 +456,16 @@ export default function SiparislerPage() {
                   {bulkLabels[action]}
                 </Button>
               ))}
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs"
+                onClick={openBulkLabelPreview}
+                disabled={labelLoading}
+              >
+                {labelLoading ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Printer className="h-3 w-3 mr-1" />}
+                Toplu Etiket
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => setSelectedOrders(new Set())} className="text-gray-500">
                 <X className="h-4 w-4" />
               </Button>
@@ -502,6 +605,30 @@ export default function SiparislerPage() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Etiket Onizleme Dialog */}
+      <Dialog open={labelPreviewOpen} onOpenChange={(open) => { if (!open) closeLabelPreview() }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Kargo Etiketi - {labelPreviewOrderNumber}</DialogTitle>
+          </DialogHeader>
+          {labelPreviewUrl && (
+            <iframe
+              src={labelPreviewUrl}
+              className="w-full border rounded"
+              style={{ height: '500px' }}
+              title="Etiket Onizleme"
+            />
+          )}
+          <div className="flex justify-end gap-2 mt-2">
+            <Button variant="outline" onClick={closeLabelPreview}>Kapat</Button>
+            <Button onClick={handleDownloadLabel}>
+              <Download className="h-4 w-4 mr-2" />
+              İndir
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
