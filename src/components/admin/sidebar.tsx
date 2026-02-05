@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, School, Users, Package, ShoppingCart,
-  DollarSign, XCircle, BarChart3,
+  DollarSign, XCircle, BarChart3, Tag,
   LogOut, BookOpen, Menu, X
 } from "lucide-react"
 import { useState } from "react"
@@ -25,6 +25,7 @@ const menuItems = [
   { href: "/admin/paketler", label: "Paketler", icon: Package },
   { href: "/admin/siparisler", label: "Siparisler", icon: ShoppingCart },
   { href: "/admin/hakedisler", label: "Hakedisler", icon: DollarSign },
+  { href: "/admin/indirimler", label: "Indirimler", icon: Tag },
   { href: "/admin/iptal-talepleri", label: "Iptal Talepleri", icon: XCircle },
   { href: "/admin/raporlar", label: "Raporlar", icon: BarChart3 },
 ]

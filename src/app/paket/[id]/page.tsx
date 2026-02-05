@@ -117,6 +117,18 @@ export default function PaketPage() {
   // Form state - Ek Alanlar
   const [orderNote, setOrderNote] = useState("")
 
+  // Form state - Indirim Kodu
+  const [discountCode, setDiscountCode] = useState("")
+  const [discountApplied, setDiscountApplied] = useState<{
+    code: string
+    description: string | null
+    type: string
+    value: number
+    discountAmount: number
+  } | null>(null)
+  const [discountError, setDiscountError] = useState("")
+  const [discountLoading, setDiscountLoading] = useState(false)
+
   // Form state - Yasal Onaylar
   const [acceptMesafeliSatis, setAcceptMesafeliSatis] = useState(false)
   const [acceptKVKK, setAcceptKVKK] = useState(false)
@@ -201,6 +213,52 @@ export default function PaketPage() {
       // Hata durumunda siparis sayfasina yonlendir
       router.push('/siparis')
     }
+  }
+
+  const handleApplyDiscount = async () => {
+    if (!discountCode.trim()) return
+
+    setDiscountLoading(true)
+    setDiscountError("")
+
+    try {
+      const res = await fetch("/api/veli/discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: discountCode.trim(),
+          totalAmount: classData?.package.price || 0
+        })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setDiscountError(data.error)
+        setDiscountApplied(null)
+      } else {
+        setDiscountApplied(data.discount)
+        setDiscountError("")
+      }
+    } catch {
+      setDiscountError("Bir hata olustu")
+    } finally {
+      setDiscountLoading(false)
+    }
+  }
+
+  const handleRemoveDiscount = () => {
+    setDiscountApplied(null)
+    setDiscountCode("")
+    setDiscountError("")
+  }
+
+  const getFinalPrice = () => {
+    const basePrice = classData?.package.price || 0
+    if (discountApplied) {
+      return Number(basePrice) - discountApplied.discountAmount
+    }
+    return Number(basePrice)
   }
 
   const validateForm = (): boolean => {
@@ -349,6 +407,7 @@ export default function PaketPage() {
           taxNumber: invoiceType === 'kurumsal' ? taxNumber : null,
           taxOffice: invoiceType === 'kurumsal' ? taxOffice : null,
           orderNote,
+          discountCode: discountApplied ? discountApplied.code : null,
           paymentMethod: "CREDIT_CARD"
         })
       })
@@ -1064,12 +1123,75 @@ export default function PaketPage() {
 
                     <hr className="border-gray-100" />
 
+                    {/* Indirim Kodu */}
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-2">Indirim Kodu</p>
+                      {discountApplied ? (
+                        <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div>
+                            <p className="text-sm font-semibold text-green-800">{discountApplied.code}</p>
+                            <p className="text-xs text-green-600">
+                              {discountApplied.type === 'PERCENTAGE'
+                                ? `%${discountApplied.value} indirim`
+                                : `${formatPrice(discountApplied.value)} TL indirim`
+                              }
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleRemoveDiscount}
+                            className="text-green-600 hover:text-red-500 transition-colors"
+                          >
+                            <CloseIcon />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={discountCode}
+                            onChange={(e) => {
+                              setDiscountCode(e.target.value.toUpperCase())
+                              setDiscountError("")
+                            }}
+                            placeholder="Kod girin"
+                            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleApplyDiscount}
+                            disabled={discountLoading || !discountCode.trim()}
+                            className="px-4 py-2 text-sm bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {discountLoading ? "..." : "Uygula"}
+                          </button>
+                        </div>
+                      )}
+                      {discountError && (
+                        <p className="text-xs text-red-600 mt-1">{discountError}</p>
+                      )}
+                    </div>
+
+                    <hr className="border-gray-100" />
+
                     {/* Toplam */}
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900">TOPLAM TUTAR</span>
-                      <span className="text-2xl font-bold text-blue-900">
-                        {formatPrice(classData.package.price)} TL
-                      </span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Ara Toplam</span>
+                        <span className="text-gray-700">{formatPrice(classData.package.price)} TL</span>
+                      </div>
+                      {discountApplied && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-green-600">Indirim</span>
+                          <span className="text-green-600">-{formatPrice(discountApplied.discountAmount)} TL</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                        <span className="font-semibold text-gray-900">TOPLAM TUTAR</span>
+                        <span className="text-2xl font-bold text-blue-900">
+                          {formatPrice(getFinalPrice())} TL
+                        </span>
+                      </div>
                     </div>
 
                     {/* Ödeme Butonu */}
@@ -1121,8 +1243,13 @@ export default function PaketPage() {
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <p className="text-sm text-gray-500">Ödenecek Tutar</p>
                 <p className="text-2xl font-bold text-blue-900">
-                  {formatPrice(classData.package.price)} TL
+                  {formatPrice(getFinalPrice())} TL
                 </p>
+                {discountApplied && (
+                  <p className="text-xs text-green-600 mt-1">
+                    {discountApplied.code} kodu ile {formatPrice(discountApplied.discountAmount)} TL indirim
+                  </p>
+                )}
               </div>
               <div className="flex gap-3">
                 <button

@@ -415,10 +415,23 @@ export default function SiparislerPage() {
           <h1 className="text-2xl font-bold text-gray-900">Siparisler</h1>
           <p className="text-gray-500">Siparis yonetimi ve takibi</p>
         </div>
-        <Button variant="outline" onClick={handleSyncCargo} disabled={syncLoading}>
-          {syncLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-          Kargo Durumlarini Sorgula
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              const params = new URLSearchParams()
+              if (filterStatus) params.set('status', filterStatus)
+              window.open(`/api/admin/orders/export?${params.toString()}`, '_blank')
+            }}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            CSV Export
+          </Button>
+          <Button variant="outline" onClick={handleSyncCargo} disabled={syncLoading}>
+            {syncLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+            Kargo Durumlarini Sorgula
+          </Button>
+        </div>
       </div>
 
       <Card>

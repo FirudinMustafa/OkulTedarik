@@ -25,7 +25,8 @@ export async function POST(request: Request) {
       companyTitle,
       taxNumber,
       taxOffice,
-      orderNote
+      orderNote,
+      discountCode
     } = body
 
     // Validasyon
@@ -86,6 +87,50 @@ export async function POST(request: Request) {
     // Siparis numarasi olustur
     const orderNumber = await generateOrderNumber()
 
+    // Indirim kodu kontrolu
+    let finalAmount = Number(classData.package.price)
+    let discountAmount = null
+    let validDiscountCode = null
+
+    if (discountCode) {
+      const discount = await prisma.discount.findUnique({
+        where: { code: discountCode.toUpperCase().trim() }
+      })
+
+      if (discount && discount.isActive) {
+        const now = new Date()
+        if (now >= discount.validFrom && now <= discount.validUntil) {
+          if (!discount.usageLimit || discount.usedCount < discount.usageLimit) {
+            if (!discount.minAmount || finalAmount >= Number(discount.minAmount)) {
+              // Indirim hesapla
+              if (discount.type === 'PERCENTAGE') {
+                discountAmount = finalAmount * Number(discount.value) / 100
+                if (discount.maxDiscount && discountAmount > Number(discount.maxDiscount)) {
+                  discountAmount = Number(discount.maxDiscount)
+                }
+              } else {
+                discountAmount = Number(discount.value)
+              }
+
+              if (discountAmount > finalAmount) {
+                discountAmount = finalAmount
+              }
+
+              discountAmount = Math.round(discountAmount * 100) / 100
+              finalAmount = Math.round((finalAmount - discountAmount) * 100) / 100
+              validDiscountCode = discount.code
+
+              // Kullanim sayisini artir
+              await prisma.discount.update({
+                where: { id: discount.id },
+                data: { usedCount: discount.usedCount + 1 }
+              })
+            }
+          }
+        }
+      }
+    }
+
     // Siparis olustur
     const order = await prisma.order.create({
       data: {
@@ -100,7 +145,9 @@ export async function POST(request: Request) {
         invoiceAddress: invoiceAddress || null,
         invoiceAddressSame: invoiceAddressSame ?? true,
         orderNote: orderNote || null,
-        totalAmount: classData.package.price,
+        totalAmount: finalAmount,
+        discountCode: validDiscountCode,
+        discountAmount: discountAmount,
         status: paymentMethod === 'CASH_ON_DELIVERY' ? 'NEW' : 'PAYMENT_PENDING',
         paymentMethod: paymentMethod || 'CREDIT_CARD',
         isCorporateInvoice: isCorporateInvoice || false,
@@ -129,7 +176,7 @@ export async function POST(request: Request) {
     if (paymentMethod === 'CREDIT_CARD') {
       const paymentResult = await initializePayment({
         orderNumber,
-        amount: Number(classData.package.price),
+        amount: finalAmount,
         buyerName: parentName,
         buyerEmail: email || `${phone}@temp.com`,
         buyerPhone: phone,

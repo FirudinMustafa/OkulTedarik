@@ -71,10 +71,19 @@ export async function PUT(
     const body = await request.json()
     const { items, basePrice, ...otherData } = body
 
+    // Izin verilen alanlari filtrele
+    const allowedFields = ['name', 'description', 'isActive']
+    const packageData: Record<string, unknown> = {}
+
+    for (const key of Object.keys(otherData)) {
+      if (allowedFields.includes(key)) {
+        packageData[key] = otherData[key]
+      }
+    }
+
     // basePrice varsa price olarak kaydet
-    const packageData = {
-      ...otherData,
-      ...(basePrice !== undefined ? { price: basePrice } : {})
+    if (basePrice !== undefined) {
+      packageData.price = basePrice
     }
 
     // Eger items varsa, once eskileri sil, sonra yenilerini ekle

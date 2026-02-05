@@ -54,14 +54,28 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
+    // Izin verilen alanlari filtrele
+    const allowedFields = ['name', 'schoolId', 'packageId', 'isActive']
+    const updateData: Record<string, unknown> = {}
+
+    for (const key of Object.keys(body)) {
+      if (allowedFields.includes(key)) {
+        updateData[key] = body[key]
+      }
+    }
+
     // packageId bos string ise null yap
-    if (body.packageId === "") {
-      body.packageId = null
+    if (updateData.packageId === "") {
+      updateData.packageId = null
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'Guncellenecek alan bulunamadi' }, { status: 400 })
     }
 
     const classData = await prisma.class.update({
       where: { id },
-      data: body
+      data: updateData
     })
 
     await logAction({

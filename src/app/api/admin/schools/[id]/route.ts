@@ -54,12 +54,25 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
-    // directorPassword varsa hash'le
+    // Izin verilen alanlari filtrele
+    const allowedFields = ['name', 'address', 'phone', 'email', 'deliveryType', 'password', 'directorName', 'directorEmail', 'directorPassword', 'isActive']
     const { directorPassword, ...rest } = body
-    const updateData: Record<string, unknown> = { ...rest }
+    const updateData: Record<string, unknown> = {}
 
+    for (const key of Object.keys(rest)) {
+      if (allowedFields.includes(key)) {
+        updateData[key] = rest[key]
+      }
+    }
+
+    // directorPassword varsa hash'le
     if (directorPassword && directorPassword.trim()) {
       updateData.directorPassword = await hashPassword(directorPassword.trim())
+    }
+
+    // En az bir alan guncellenmelidir
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'Guncellenecek alan bulunamadi' }, { status: 400 })
     }
 
     const school = await prisma.school.update({

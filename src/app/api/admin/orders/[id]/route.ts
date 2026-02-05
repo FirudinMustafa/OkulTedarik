@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSession } from '@/lib/auth'
+import { logAction } from '@/lib/logger'
 
 export async function GET(
   request: Request,
@@ -63,9 +64,32 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
 
+    // Izin verilen alanlari filtrele
+    const allowedFields = ['status', 'trackingNo', 'address', 'phone', 'email', 'orderNote']
+    const updateData: Record<string, unknown> = {}
+
+    for (const key of Object.keys(body)) {
+      if (allowedFields.includes(key)) {
+        updateData[key] = body[key]
+      }
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'Guncellenecek alan bulunamadi' }, { status: 400 })
+    }
+
     const order = await prisma.order.update({
       where: { id },
-      data: body
+      data: updateData
+    })
+
+    await logAction({
+      userId: session.id,
+      userType: 'ADMIN',
+      action: 'UPDATE',
+      entity: 'ORDER',
+      entityId: order.id,
+      details: { orderNumber: order.orderNumber, updatedFields: Object.keys(updateData) }
     })
 
     return NextResponse.json({ order })

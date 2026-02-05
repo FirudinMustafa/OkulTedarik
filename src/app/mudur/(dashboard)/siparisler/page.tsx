@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
-import { ShoppingCart } from "lucide-react"
+import { ShoppingCart, Download } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
 
 const statusLabels: Record<string, string> = {
@@ -68,9 +68,18 @@ export default async function MudurSiparislerPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Siparisler</h1>
-        <p className="text-gray-500">Okulunuza ait tum siparisler</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Siparisler</h1>
+          <p className="text-gray-500">Okulunuza ait tum siparisler</p>
+        </div>
+        <a
+          href="/api/mudur/orders/export"
+          className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 rounded-md bg-white hover:bg-gray-50 transition-colors"
+        >
+          <Download className="h-4 w-4" />
+          CSV Export
+        </a>
       </div>
 
       <Card>
