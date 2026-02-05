@@ -17,6 +17,8 @@ interface OrderData {
   packageName: string
   deliveryType: string
   trackingNo?: string
+  discountCode?: string
+  discountAmount?: number
   createdAt: string
   paidAt?: string
 }
@@ -195,13 +197,30 @@ export default function SiparisOnayPage() {
               </div>
             </div>
 
-            {/* Toplam Tutar */}
-            <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
-              <span className="text-gray-700 font-medium">Toplam Tutar</span>
-              <span className="text-2xl font-bold text-blue-900">
-                {formatPrice(order.totalAmount)} TL
-              </span>
-            </div>
+            {/* Tutar Bilgileri */}
+            {order.discountCode && order.discountAmount ? (
+              <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-600">Ara Toplam</span>
+                  <span className="text-gray-700">{formatPrice(order.totalAmount + order.discountAmount)} TL</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-600">Indirim ({order.discountCode})</span>
+                  <span className="text-green-600 font-medium">-{formatPrice(order.discountAmount)} TL</span>
+                </div>
+                <div className="border-t border-gray-200 pt-2 flex items-center justify-between">
+                  <span className="text-gray-700 font-medium">Toplam Tutar</span>
+                  <span className="text-2xl font-bold text-blue-900">{formatPrice(order.totalAmount)} TL</span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
+                <span className="text-gray-700 font-medium">Toplam Tutar</span>
+                <span className="text-2xl font-bold text-blue-900">
+                  {formatPrice(order.totalAmount)} TL
+                </span>
+              </div>
+            )}
 
             {/* Kargo Takip */}
             {order.trackingNo && (

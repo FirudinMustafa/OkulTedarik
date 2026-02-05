@@ -7,6 +7,7 @@ import {
   CheckCircle, Clock
 } from "lucide-react"
 import { formatNumber } from "@/lib/utils"
+import { ORDER_STATUS_LABELS } from "@/lib/constants"
 
 interface Order {
   id: string
@@ -95,16 +96,7 @@ export default async function MudurDashboard() {
     redirect('/mudur/login')
   }
 
-  const statusLabels: Record<string, string> = {
-    NEW: "Yeni",
-    PAYMENT_PENDING: "Ödeme Bekliyor",
-    PAID: "Ödendi",
-    PREPARING: "Hazırlanıyor",
-    SHIPPED: "Kargoda",
-    DELIVERED: "Teslim Edildi",
-    COMPLETED: "Tamamlandı",
-    CANCELLED: "İptal Edildi"
-  }
+  const statusLabels = ORDER_STATUS_LABELS
 
   const statCards = [
     {

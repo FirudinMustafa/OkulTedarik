@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSession } from '@/lib/auth'
+import { ORDER_STATUS_LABELS } from '@/lib/constants'
 
 export async function GET(request: Request) {
   try {
@@ -42,17 +43,7 @@ export async function GET(request: Request) {
       orderBy: { createdAt: 'desc' }
     })
 
-    const statusLabels: Record<string, string> = {
-      NEW: 'Yeni',
-      PAYMENT_PENDING: 'Odeme Bekliyor',
-      PAID: 'Odendi',
-      PREPARING: 'Hazirlaniyor',
-      SHIPPED: 'Kargoda',
-      DELIVERED: 'Teslim Edildi',
-      COMPLETED: 'Tamamlandi',
-      CANCELLED: 'Iptal',
-      REFUNDED: 'Iade'
-    }
+    const statusLabels: Record<string, string> = { ...ORDER_STATUS_LABELS, REFUNDED: 'Iade' }
 
     const paymentLabels: Record<string, string> = {
       CREDIT_CARD: 'Kredi Karti',

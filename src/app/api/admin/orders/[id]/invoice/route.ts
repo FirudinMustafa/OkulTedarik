@@ -32,9 +32,9 @@ export async function POST(
       return NextResponse.json({ error: 'Siparis bulunamadi' }, { status: 404 })
     }
 
-    if (!['PAID', 'NEW'].includes(order.status)) {
+    if (order.status !== 'PAID') {
       return NextResponse.json(
-        { error: 'Bu siparis icin fatura kesilemez (sadece Odendi veya Yeni durumundaki siparisler)' },
+        { error: 'Bu siparis icin fatura kesilemez (sadece odenmis siparisler)' },
         { status: 400 }
       )
     }

@@ -15,6 +15,7 @@ import {
   XCircle, FileText, BarChart3, CreditCard
 } from "lucide-react"
 import { formatCurrency, formatDateShort, formatDateTimeFull } from '@/lib/utils'
+import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from '@/lib/constants'
 
 interface DashboardData {
   summary: {
@@ -56,27 +57,8 @@ interface DashboardData {
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16']
 
-const statusLabels: Record<string, string> = {
-  NEW: 'Yeni',
-  PAYMENT_PENDING: 'Ödeme Bekliyor',
-  PAID: 'Ödendi',
-  PREPARING: 'Hazırlanıyor',
-  SHIPPED: 'Kargoda',
-  DELIVERED: 'Teslim Edildi',
-  COMPLETED: 'Tamamlandı',
-  CANCELLED: 'İptal Edildi'
-}
-
-const statusColors: Record<string, string> = {
-  NEW: 'bg-sky-100 text-sky-800',
-  PAYMENT_PENDING: 'bg-yellow-100 text-yellow-800',
-  PAID: 'bg-blue-100 text-blue-800',
-  PREPARING: 'bg-amber-100 text-amber-800',
-  SHIPPED: 'bg-purple-100 text-purple-800',
-  DELIVERED: 'bg-green-100 text-green-800',
-  COMPLETED: 'bg-emerald-100 text-emerald-800',
-  CANCELLED: 'bg-red-100 text-red-800'
-}
+const statusLabels = ORDER_STATUS_LABELS
+const statusColors = ORDER_STATUS_COLORS
 
 const monthNames: Record<string, string> = {
   '01': 'Oca', '02': 'Sub', '03': 'Mar', '04': 'Nis',

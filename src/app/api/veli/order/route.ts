@@ -303,6 +303,8 @@ export async function GET(request: Request) {
       packageName: order.package?.name || 'N/A',
       deliveryType: order.class.school.deliveryType,
       trackingNo: order.trackingNo,
+      discountCode: order.discountCode,
+      discountAmount: order.discountAmount ? Number(order.discountAmount) : null,
       createdAt: order.createdAt,
       paidAt: order.paidAt,
       shippedAt: order.shippedAt,

@@ -37,6 +37,8 @@ interface OrderData {
   packageName: string
   deliveryType: string
   trackingNo: string | null
+  discountCode?: string | null
+  discountAmount?: number | null
   createdAt: string
   paidAt: string | null
   shippedAt: string | null
@@ -296,6 +298,11 @@ function SiparisTakipPage() {
                 <div>
                   <p className="text-gray-500">Toplam Tutar</p>
                   <p className="font-medium text-blue-600">{formatPrice(order.totalAmount)} TL</p>
+                  {order.discountCode && order.discountAmount && (
+                    <p className="text-xs text-green-600 mt-0.5">
+                      Indirim: -{formatPrice(order.discountAmount)} TL ({order.discountCode})
+                    </p>
+                  )}
                 </div>
               </div>
             </CardContent>

@@ -24,6 +24,7 @@ import {
   CheckCircle, CheckCheck, RefreshCw, Loader2, Printer, Download
 } from "lucide-react"
 import { formatDateTime } from "@/lib/utils"
+import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@/lib/constants"
 import {
   previewShippingLabel, previewBulkLabels,
   downloadShippingLabel, downloadBulkLabels,
@@ -52,27 +53,8 @@ interface OrderType {
   package: { name: string } | null
 }
 
-const statusLabels: Record<string, string> = {
-  NEW: "Yeni",
-  PAYMENT_PENDING: "Ödeme Bekliyor",
-  PAID: "Ödendi",
-  PREPARING: "Hazırlanıyor",
-  SHIPPED: "Kargoda",
-  DELIVERED: "Teslim Edildi",
-  COMPLETED: "Tamamlandı",
-  CANCELLED: "İptal Edildi"
-}
-
-const statusColors: Record<string, string> = {
-  NEW: "bg-sky-100 text-sky-800",
-  PAYMENT_PENDING: "bg-yellow-100 text-yellow-800",
-  PAID: "bg-blue-100 text-blue-800",
-  PREPARING: "bg-amber-100 text-amber-800",
-  SHIPPED: "bg-purple-100 text-purple-800",
-  DELIVERED: "bg-green-100 text-green-800",
-  COMPLETED: "bg-emerald-100 text-emerald-800",
-  CANCELLED: "bg-red-100 text-red-800"
-}
+const statusLabels = ORDER_STATUS_LABELS
+const statusColors = ORDER_STATUS_COLORS
 
 export default function SiparislerPage() {
   const [orders, setOrders] = useState<OrderType[]>([])
@@ -91,6 +73,7 @@ export default function SiparislerPage() {
 
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [syncLoading, setSyncLoading] = useState(false)
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState<string | null>(null)
 
   // Etiket onizleme
   const [labelPreviewUrl, setLabelPreviewUrl] = useState<string | null>(null)
@@ -166,6 +149,23 @@ export default function SiparislerPage() {
       })
       fetchOrders()
     } finally { setProcessingId(null) }
+  }
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    setStatusUpdateLoading(orderId)
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ status: newStatus })
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        alert(data.error || 'Durum guncellenemedi')
+      }
+      fetchOrders()
+    } finally { setStatusUpdateLoading(null) }
   }
 
   // --- TOPLU ISLEMLER ---
@@ -350,12 +350,27 @@ export default function SiparislerPage() {
 
     switch (order.status) {
       case "NEW":
+        return (
+          <div className="flex gap-1">
+            <Button size="sm" className="text-xs h-7 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => updateOrderStatus(order.id, 'PAID')}
+              disabled={statusUpdateLoading === order.id}
+            >
+              {statusUpdateLoading === order.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+              Onayla
+            </Button>
+          </div>
+        )
       case "PAYMENT_PENDING":
         return (
           <div className="flex gap-1">
-            <Badge variant="outline" className="text-xs">
-              {order.status === "NEW" ? "Onay Bekliyor" : "Ödeme Bekliyor"}
-            </Badge>
+            <Button size="sm" className="text-xs h-7 bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={() => updateOrderStatus(order.id, 'PAID')}
+              disabled={statusUpdateLoading === order.id}
+            >
+              {statusUpdateLoading === order.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+              Odendi Isaretle
+            </Button>
           </div>
         )
       case "PAID":

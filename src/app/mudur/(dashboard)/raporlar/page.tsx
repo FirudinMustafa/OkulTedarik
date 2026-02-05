@@ -6,6 +6,7 @@ import {
   BarChart3, TrendingUp, Users, Package, ShoppingCart
 } from "lucide-react"
 import { formatNumber } from "@/lib/utils"
+import { ORDER_STATUS_LABELS } from "@/lib/constants"
 
 interface OrderItem {
   status: string
@@ -74,16 +75,7 @@ async function getSchoolReports(schoolId: string) {
   }
 }
 
-const statusLabels: Record<string, string> = {
-  NEW: "Yeni",
-  PAYMENT_PENDING: "Ödeme Bekliyor",
-  PAID: "Ödendi",
-  PREPARING: "Hazırlanıyor",
-  SHIPPED: "Kargoda",
-  DELIVERED: "Teslim Edildi",
-  COMPLETED: "Tamamlandı",
-  CANCELLED: "İptal Edildi"
-}
+const statusLabels = ORDER_STATUS_LABELS
 
 export default async function MudurRaporlarPage() {
   const session = await getMudurSession()

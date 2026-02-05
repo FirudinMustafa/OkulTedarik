@@ -2,7 +2,7 @@
  * Prisma Seed - Test Verileri
  * Her çalıştırıldığında tüm verileri siler ve yeniden oluşturur.
  *
- * 3 Okul, 14 Sınıf, 3 Paket, 15 Sipariş
+ * 3 Okul, 14 Sınıf, 3 Paket, 17 Sipariş, 3 İndirim Kodu
  */
 
 import { PrismaClient } from '@prisma/client'
@@ -200,24 +200,27 @@ async function main() {
     veli: string
     ogrenci: string
     phone: string
-    status: 'PAID' | 'PREPARING' | 'SHIPPED' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED'
+    status: 'NEW' | 'PAYMENT_PENDING' | 'PAID' | 'PREPARING' | 'SHIPPED' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED'
     paid: boolean
+    paymentMethod?: 'CREDIT_CARD' | 'CASH_ON_DELIVERY'
     address?: string
     createdDaysAgo: number
   }> = [
-    // Okul 1 - Atatürk İlkokulu (Okula Teslim - 5 sipariş)
+    // Okul 1 - Atatürk İlkokulu (Okula Teslim - 6 sipariş)
     { okulAdi: 'Atatürk İlkokulu', sinifAdi: '1-A', veli: 'Ali Kaya', ogrenci: 'Elif Kaya', phone: '05301234567', status: 'COMPLETED', paid: true, createdDaysAgo: 20 },
     { okulAdi: 'Atatürk İlkokulu', sinifAdi: '1-A', veli: 'Mehmet Yıldız', ogrenci: 'Can Yıldız', phone: '05302345678', status: 'PAID', paid: true, createdDaysAgo: 2 },
     { okulAdi: 'Atatürk İlkokulu', sinifAdi: '1-B', veli: 'Ayşe Demir', ogrenci: 'Zeynep Demir', phone: '05303456789', status: 'PREPARING', paid: true, createdDaysAgo: 5 },
     { okulAdi: 'Atatürk İlkokulu', sinifAdi: '2-A', veli: 'Fatma Çelik', ogrenci: 'Burak Çelik', phone: '05304567890', status: 'DELIVERED', paid: true, createdDaysAgo: 10 },
     { okulAdi: 'Atatürk İlkokulu', sinifAdi: '3-A', veli: 'Hasan Arslan', ogrenci: 'Selin Arslan', phone: '05305678901', status: 'PAID', paid: true, createdDaysAgo: 1 },
+    { okulAdi: 'Atatürk İlkokulu', sinifAdi: '2-B', veli: 'Selim Eren', ogrenci: 'Deniz Eren', phone: '05306001234', status: 'NEW', paid: false, paymentMethod: 'CASH_ON_DELIVERY', createdDaysAgo: 0 },
 
-    // Okul 2 - Fatih İlkokulu (Kargo Teslim - 5 sipariş)
+    // Okul 2 - Fatih İlkokulu (Kargo Teslim - 6 sipariş)
     { okulAdi: 'Fatih İlkokulu', sinifAdi: '1-A', veli: 'Veli Şahin', ogrenci: 'Efe Şahin', phone: '05306789012', status: 'SHIPPED', paid: true, address: 'Bahçelievler Mah. No:12 Keçiören/Ankara', createdDaysAgo: 8 },
     { okulAdi: 'Fatih İlkokulu', sinifAdi: '1-B', veli: 'Zehra Koç', ogrenci: 'Ada Koç', phone: '05307890123', status: 'DELIVERED', paid: true, address: 'Yenimahalle Cad. No:45 Ankara', createdDaysAgo: 12 },
     { okulAdi: 'Fatih İlkokulu', sinifAdi: '2-A', veli: 'Mustafa Özdemir', ogrenci: 'Yusuf Özdemir', phone: '05308901234', status: 'PAID', paid: true, createdDaysAgo: 3 },
     { okulAdi: 'Fatih İlkokulu', sinifAdi: '3-A', veli: 'Emine Aydın', ogrenci: 'Defne Aydın', phone: '05309012345', status: 'PREPARING', paid: true, address: 'Etlik Mah. No:78 Ankara', createdDaysAgo: 6 },
     { okulAdi: 'Fatih İlkokulu', sinifAdi: '3-B', veli: 'İbrahim Yılmaz', ogrenci: 'Mert Yılmaz', phone: '05300123456', status: 'CANCELLED', paid: false, createdDaysAgo: 15 },
+    { okulAdi: 'Fatih İlkokulu', sinifAdi: '1-B', veli: 'Derya Kılıç', ogrenci: 'Lara Kılıç', phone: '05307001234', status: 'PAYMENT_PENDING', paid: false, paymentMethod: 'CREDIT_CARD', address: 'Çankaya Mah. No:33 Ankara', createdDaysAgo: 0 },
 
     // Okul 3 - Cumhuriyet İlkokulu (Okula Teslim - 5 sipariş)
     { okulAdi: 'Cumhuriyet İlkokulu', sinifAdi: '1-A', veli: 'Kemal Aksoy', ogrenci: 'Beren Aksoy', phone: '05321234567', status: 'COMPLETED', paid: true, createdDaysAgo: 25 },
@@ -256,7 +259,7 @@ async function main() {
           address: sip.address || null,
           totalAmount: sinif.package.price,
           status: sip.status,
-          paymentMethod: sip.paid ? 'CREDIT_CARD' : null,
+          paymentMethod: sip.paymentMethod || (sip.paid ? 'CREDIT_CARD' : null),
           paymentId: sip.paid ? `mock_payment_${orderCount}` : null,
           paidAt,
           invoiceNo: invoiceDate
@@ -277,6 +280,53 @@ async function main() {
       orderCount++
     }
   }
+
+  // ==========================================
+  // İNDİRİM KODLARI (3 Kod)
+  // ==========================================
+  const discountNow = new Date()
+  const discountEnd = new Date(discountNow.getTime() + 90 * 24 * 60 * 60 * 1000) // 90 gun sonra
+
+  await prisma.discount.createMany({
+    data: [
+      {
+        code: 'HOSGELDIN10',
+        type: 'PERCENTAGE',
+        value: 10,
+        description: 'Yeni musterilere %10 indirim',
+        validFrom: discountNow,
+        validUntil: discountEnd,
+        isActive: true,
+        usageLimit: 100,
+        usedCount: 3
+      },
+      {
+        code: 'OKUL50',
+        type: 'FIXED',
+        value: 50,
+        description: '50 TL sabit indirim',
+        validFrom: discountNow,
+        validUntil: discountEnd,
+        isActive: true,
+        usageLimit: 50,
+        usedCount: 0,
+        minAmount: 400
+      },
+      {
+        code: 'SURELI20',
+        type: 'PERCENTAGE',
+        value: 20,
+        description: 'Sureli kampanya %20 indirim (max 100 TL)',
+        validFrom: discountNow,
+        validUntil: new Date(discountNow.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 gun
+        isActive: true,
+        usageLimit: 20,
+        usedCount: 0,
+        maxDiscount: 100
+      }
+    ]
+  })
+  console.log('3 indirim kodu olusturuldu')
 
   // ==========================================
   // ÖZET
@@ -320,6 +370,13 @@ async function main() {
   console.log('Cumhuriyet İlkokulu (Okula Teslim):')
   console.log('  Şifre: CUMHURIYET2024')
   console.log('  Sınıflar: 1-A, 2-A, 2-B, 3-A')
+  console.log('')
+  console.log('İNDİRİM KODLARI')
+  console.log('==========================================')
+  console.log('')
+  console.log('  HOSGELDIN10 - %10 indirim (100 kullanım)')
+  console.log('  OKUL50      - 50 TL sabit (min 400 TL)')
+  console.log('  SURELI20    - %20 indirim (max 100 TL, 7 gün)')
   console.log('')
 }
 

@@ -18,7 +18,7 @@ export async function GET() {
             orders: {
               where: {
                 status: {
-                  in: ['NEW', 'PAYMENT_PENDING', 'PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED']
+                  in: ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED']
                 }
               }
             }

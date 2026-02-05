@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAdminSession } from '@/lib/auth'
 import { logAction } from '@/lib/logger'
+import { VALID_STATUS_TRANSITIONS } from '@/lib/constants'
 
 export async function GET(
   request: Request,
@@ -76,6 +77,27 @@ export async function PUT(
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: 'Guncellenecek alan bulunamadi' }, { status: 400 })
+    }
+
+    // Status degisikligi varsa gecerli gecis kontrolu
+    if (updateData.status) {
+      const currentOrder = await prisma.order.findUnique({ where: { id }, select: { status: true } })
+      if (!currentOrder) {
+        return NextResponse.json({ error: 'Siparis bulunamadi' }, { status: 404 })
+      }
+
+      const allowedTransitions = VALID_STATUS_TRANSITIONS[currentOrder.status] || []
+      if (!allowedTransitions.includes(updateData.status as string)) {
+        return NextResponse.json(
+          { error: `${currentOrder.status} durumundan ${updateData.status} durumuna gecis yapilamaz` },
+          { status: 400 }
+        )
+      }
+
+      // PAID gecisinde paidAt otomatik set et
+      if (updateData.status === 'PAID') {
+        updateData.paidAt = new Date()
+      }
     }
 
     const order = await prisma.order.update({
