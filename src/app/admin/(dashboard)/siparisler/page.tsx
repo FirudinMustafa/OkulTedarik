@@ -8,7 +8,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow
 } from "@/components/ui/table"
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter
+  Dialog, DialogContent, DialogHeader, DialogTitle
 } from "@/components/ui/dialog"
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue
@@ -69,9 +69,7 @@ export default function SiparislerPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<OrderType | null>(null)
-  const [newStatus, setNewStatus] = useState("")
 
   // Toplu islem
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
@@ -100,17 +98,6 @@ export default function SiparislerPage() {
   // --- TEKIL ISLEMLER ---
 
   const prepareOrder = async (orderId: string) => {
-    setProcessingId(orderId)
-    try {
-      await fetch(`/api/admin/orders/${orderId}/invoice`, {
-        method: "POST",
-        credentials: 'include'
-      })
-      fetchOrders()
-    } finally { setProcessingId(null) }
-  }
-
-  const createInvoice = async (orderId: string) => {
     setProcessingId(orderId)
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/invoice`, {
@@ -216,22 +203,6 @@ export default function SiparislerPage() {
       setBulkResult({ message: 'Bir hata olustu', success: 0, failed: ids.length })
     } finally {
       setBulkLoading(false)
-    }
-  }
-
-  // Manuel durum degistirme
-  const handleStatusChange = async () => {
-    if (!selectedOrder || !newStatus) return
-    try {
-      const res = await fetch(`/api/admin/orders/${selectedOrder.id}/status`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-        body: JSON.stringify({ status: newStatus })
-      })
-      if (res.ok) { fetchOrders(); setStatusDialogOpen(false); setNewStatus("") }
-    } catch (error) {
-      console.error("Durum guncelleme hatasi:", error)
     }
   }
 
@@ -458,10 +429,7 @@ export default function SiparislerPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        className={`cursor-pointer ${statusColors[order.status] || ""}`}
-                        onClick={() => { setSelectedOrder(order); setNewStatus(order.status); setStatusDialogOpen(true) }}
-                      >
+                      <Badge className={statusColors[order.status] || ""}>
                         {statusLabels[order.status] || order.status}
                       </Badge>
                     </TableCell>
@@ -534,28 +502,6 @@ export default function SiparislerPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Manuel Durum Degistirme */}
-      <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Siparis Durumu Degistir</DialogTitle></DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-500 mb-4">Siparis: <span className="font-mono">{selectedOrder?.orderNumber}</span></p>
-            <Select value={newStatus} onValueChange={setNewStatus}>
-              <SelectTrigger><SelectValue placeholder="Yeni durum secin" /></SelectTrigger>
-              <SelectContent>
-                {Object.entries(statusLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStatusDialogOpen(false)}>Iptal</Button>
-            <Button onClick={handleStatusChange}>Guncelle</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
