@@ -3,8 +3,6 @@
  * USE_MOCK_EMAIL=false ise Resend uzerinden gercek email gonderir
  */
 
-import fs from 'fs'
-import path from 'path'
 
 export interface EmailData {
   to: string
@@ -24,20 +22,6 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-// Logo base64 - server tarafinda dosyadan okunur, email icine gomulur
-let logoBase64Cache: string | null = null
-function getLogoBase64(): string {
-  if (logoBase64Cache) return logoBase64Cache
-  try {
-    const logoPath = path.join(process.cwd(), 'public', 'logo.png')
-    const logoBuf = fs.readFileSync(logoPath)
-    logoBase64Cache = `data:image/png;base64,${logoBuf.toString('base64')}`
-    return logoBase64Cache
-  } catch {
-    console.warn('[EMAIL] Logo dosyasi okunamadi, fallback kullaniliyor')
-    return ''
-  }
-}
 
 async function sendViaResend(data: EmailData): Promise<EmailResult> {
   const res = await fetch('https://api.resend.com/emails', {
@@ -118,8 +102,6 @@ const COLORS = {
 }
 
 function wrapTemplate(title: string, content: string): string {
-  const logoSrc = getLogoBase64() || `${APP_URL}/logo.png`
-
   return `<!DOCTYPE html>
 <html lang="tr">
 <head>
@@ -136,7 +118,7 @@ function wrapTemplate(title: string, content: string): string {
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, ${COLORS.bgDark} 0%, ${COLORS.primary} 100%); padding: 30px 40px; border-radius: 12px 12px 0 0; text-align: center;">
-              <img src="${logoSrc}" alt="OkulTedarigim.com" width="180" style="display: block; margin: 0 auto 12px; max-width: 180px; height: auto;" />
+              <h1 style="color: #ffffff; margin: 0 0 6px; font-size: 24px; font-weight: 700; letter-spacing: 1px;">OKULTEDARIGIM.COM</h1>
               <p style="color: ${COLORS.textLight}; margin: 0; font-size: 13px; letter-spacing: 1px;">OKUL MALZEME TEDARIGINIZ BIZDEN</p>
             </td>
           </tr>
