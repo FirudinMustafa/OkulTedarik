@@ -58,6 +58,13 @@ test-db.js
 # Claude Code
 .claude/
 
+# Credentials file (contains test passwords - keep local only)
+GIRIS_BILGILERI.md
+
+# Root level logo files (use public/ versions)
+/Logo*.png
+/Logo\ *.png
+
 # Local settings
 .local/
 

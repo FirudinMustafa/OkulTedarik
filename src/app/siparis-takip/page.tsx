@@ -371,7 +371,7 @@ function SiparisTakipPage() {
                 Yeni Sorgulama
               </Button>
               {/* Iptal butonu - iptal edilebilir durumlarda ve aktif PENDING talep yoksa goster */}
-              {["PAID", "PREPARING"].includes(order.status) &&
+              {["NEW", "PAYMENT_PENDING", "PAID", "PREPARING"].includes(order.status) &&
                 (!order.cancelRequest || order.cancelRequest.status === 'REJECTED') &&
                 !cancelSuccess && (
                 <Button variant="destructive" size="sm" onClick={() => setCancelDialogOpen(true)}>

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { CANCELLABLE_STATUSES } from '@/lib/constants'
 
 export async function POST(request: Request) {
   try {
@@ -25,8 +26,7 @@ export async function POST(request: Request) {
     }
 
     // Iptal edilebilir durumlari kontrol et
-    const cancellableStatuses = ['NEW', 'PAYMENT_PENDING', 'PAID', 'PREPARING']
-    if (!cancellableStatuses.includes(order.status)) {
+    if (!CANCELLABLE_STATUSES.includes(order.status)) {
       return NextResponse.json(
         { error: 'Bu siparis artik iptal edilemez' },
         { status: 400 }

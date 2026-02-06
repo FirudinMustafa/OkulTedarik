@@ -23,7 +23,7 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
 }
 
 // Iptal edilebilir durumlar (veli tarafindan)
-export const CANCELLABLE_STATUSES = ['PAID', 'PREPARING']
+export const CANCELLABLE_STATUSES = ['NEW', 'PAYMENT_PENDING', 'PAID', 'PREPARING']
 
 // Gelire dahil edilecek durumlar (odenmis siparisler)
 export const REVENUE_STATUSES = ['PAID', 'PREPARING', 'SHIPPED', 'DELIVERED', 'COMPLETED']

@@ -87,10 +87,11 @@ export async function POST(request: Request) {
     // Siparis numarasi olustur
     const orderNumber = await generateOrderNumber()
 
-    // Indirim kodu kontrolu
+    // Indirim hesaplama + siparis olusturma (transaction ile)
     let finalAmount = Number(classData.package.price)
-    let discountAmount = null
-    let validDiscountCode = null
+    let discountAmount: number | null = null
+    let validDiscountCode: string | null = null
+    let discountId: string | null = null
 
     if (discountCode) {
       const discount = await prisma.discount.findUnique({
@@ -102,7 +103,6 @@ export async function POST(request: Request) {
         if (now >= discount.validFrom && now <= discount.validUntil) {
           if (!discount.usageLimit || discount.usedCount < discount.usageLimit) {
             if (!discount.minAmount || finalAmount >= Number(discount.minAmount)) {
-              // Indirim hesapla
               if (discount.type === 'PERCENTAGE') {
                 discountAmount = finalAmount * Number(discount.value) / 100
                 if (discount.maxDiscount && discountAmount > Number(discount.maxDiscount)) {
@@ -119,44 +119,48 @@ export async function POST(request: Request) {
               discountAmount = Math.round(discountAmount * 100) / 100
               finalAmount = Math.round((finalAmount - discountAmount) * 100) / 100
               validDiscountCode = discount.code
-
-              // Kullanim sayisini artir
-              await prisma.discount.update({
-                where: { id: discount.id },
-                data: { usedCount: discount.usedCount + 1 }
-              })
+              discountId = discount.id
             }
           }
         }
       }
     }
 
-    // Siparis olustur
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        parentName: parentName.trim(),
-        studentName: studentName.trim(),
-        studentSection: studentSection || null,
-        phone: phone.replace(/\s/g, ''),
-        email: email || null,
-        address: address || null,
-        deliveryAddress: deliveryAddress || null,
-        invoiceAddress: invoiceAddress || null,
-        invoiceAddressSame: invoiceAddressSame ?? true,
-        orderNote: orderNote || null,
-        totalAmount: finalAmount,
-        discountCode: validDiscountCode,
-        discountAmount: discountAmount,
-        status: paymentMethod === 'CASH_ON_DELIVERY' ? 'NEW' : 'PAYMENT_PENDING',
-        paymentMethod: paymentMethod || 'CREDIT_CARD',
-        isCorporateInvoice: isCorporateInvoice || false,
-        companyTitle: isCorporateInvoice ? (companyTitle || null) : null,
-        taxNumber: isCorporateInvoice ? (taxNumber || null) : null,
-        taxOffice: isCorporateInvoice ? (taxOffice || null) : null,
-        classId,
-        packageId: classData.package.id
+    // Transaction: indirim kullanim sayisi + siparis olustur (atomik)
+    const order = await prisma.$transaction(async (tx) => {
+      if (discountId) {
+        await tx.discount.update({
+          where: { id: discountId },
+          data: { usedCount: { increment: 1 } }
+        })
       }
+
+      return tx.order.create({
+        data: {
+          orderNumber,
+          parentName: parentName.trim(),
+          studentName: studentName.trim(),
+          studentSection: studentSection || null,
+          phone: phone.replace(/\s/g, ''),
+          email: email || null,
+          address: address || null,
+          deliveryAddress: deliveryAddress || null,
+          invoiceAddress: invoiceAddress || null,
+          invoiceAddressSame: invoiceAddressSame ?? true,
+          orderNote: orderNote || null,
+          totalAmount: finalAmount,
+          discountCode: validDiscountCode,
+          discountAmount: discountAmount,
+          status: paymentMethod === 'CASH_ON_DELIVERY' ? 'NEW' : 'PAYMENT_PENDING',
+          paymentMethod: paymentMethod || 'CREDIT_CARD',
+          isCorporateInvoice: isCorporateInvoice || false,
+          companyTitle: isCorporateInvoice ? (companyTitle || null) : null,
+          taxNumber: isCorporateInvoice ? (taxNumber || null) : null,
+          taxOffice: isCorporateInvoice ? (taxOffice || null) : null,
+          classId,
+          packageId: classData.package!.id
+        }
+      })
     })
 
     // Log kaydet

@@ -10,6 +10,7 @@ export interface SMSResult {
 }
 
 const USE_MOCK = process.env.USE_MOCK_SMS !== 'false'
+const isDev = process.env.NODE_ENV !== 'production'
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || ''
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || ''
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || ''
@@ -68,10 +69,12 @@ export async function sendSMS(data: { to: string; message: string }): Promise<SM
 
 async function sendSMSInternal(phone: string, message: string): Promise<SMSResult> {
   if (USE_MOCK) {
-    console.log('[MOCK SMS] ===============================')
-    console.log(`[MOCK SMS] To: ${phone}`)
-    console.log(`[MOCK SMS] Message: ${message}`)
-    console.log('[MOCK SMS] ===============================')
+    if (isDev) {
+      console.log('[MOCK SMS] ===============================')
+      console.log(`[MOCK SMS] To: ${phone}`)
+      console.log(`[MOCK SMS] Message: ${message}`)
+      console.log('[MOCK SMS] ===============================')
+    }
 
     await new Promise(resolve => setTimeout(resolve, 200))
 

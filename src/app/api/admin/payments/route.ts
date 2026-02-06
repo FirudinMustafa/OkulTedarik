@@ -47,9 +47,9 @@ export async function POST(request: Request) {
 
     const { schoolId, amount, description } = await request.json()
 
-    if (!schoolId || !amount) {
+    if (!schoolId || !amount || amount <= 0) {
       return NextResponse.json(
-        { error: 'Okul ve tutar gerekli' },
+        { error: 'Okul ve gecerli bir tutar gerekli' },
         { status: 400 }
       )
     }

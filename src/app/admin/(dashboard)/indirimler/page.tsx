@@ -48,7 +48,7 @@ export default function IndirimlerPage() {
 
   const loadDiscounts = async () => {
     try {
-      const res = await fetch("/api/admin/discounts")
+      const res = await fetch("/api/admin/discounts", { credentials: 'include' })
       const data = await res.json()
       if (res.ok) {
         setDiscounts(data.discounts)
@@ -115,6 +115,7 @@ export default function IndirimlerPage() {
       const res = await fetch(url, {
         method: editingId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify(payload)
       })
 
@@ -134,7 +135,7 @@ export default function IndirimlerPage() {
     if (!confirm("Bu indirim kodunu silmek istediginize emin misiniz?")) return
 
     try {
-      const res = await fetch(`/api/admin/discounts/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/admin/discounts/${id}`, { method: "DELETE", credentials: 'include' })
       if (res.ok) {
         loadDiscounts()
       }
@@ -148,6 +149,7 @@ export default function IndirimlerPage() {
       const res = await fetch(`/api/admin/discounts/${d.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ isActive: !d.isActive })
       })
       if (res.ok) {

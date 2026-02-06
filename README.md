@@ -118,11 +118,9 @@ Uygulama http://localhost:3000 adresinde calisacak.
 
 ## Varsayilan Giris Bilgileri
 
-Seed calistirdiktan sonra:
+Seed calistirdiktan sonra varsayilan giris bilgileri icin `GIRIS_BILGILERI.md` dosyasina bakin.
 
-| Rol | Email | Sifre |
-|-----|-------|-------|
-| Admin | admin@okultedarik.com | admin123 |
+> **Not:** Production ortaminda seed verisini kullanmayin. Kendi admin hesabinizi olusturun ve guclu sifreler kullanin.
 
 ## Proje Yapisi
 

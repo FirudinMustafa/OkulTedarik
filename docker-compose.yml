@@ -6,18 +6,18 @@ services:
     container_name: okul_tedarik_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: okul_tedarik
-      MYSQL_USER: okul_user
-      MYSQL_PASSWORD: okul_pass_2024
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-okul_tedarik}
+      MYSQL_USER: ${MYSQL_USER:-okul_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-okul_pass_2024}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot123"]
-      interval: 5s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
       timeout: 5s
       retries: 10
     command: --default-authentication-plugin=mysql_native_password

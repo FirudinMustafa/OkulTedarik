@@ -36,15 +36,18 @@ export interface TrackingInfo {
 }
 
 const USE_MOCK = process.env.USE_MOCK_CARGO !== 'false'
+const isDev = process.env.NODE_ENV !== 'production'
 
 /**
  * Kargo kaydı olustur
  */
 export async function createShipment(data: ShipmentData): Promise<ShipmentResult> {
   if (USE_MOCK) {
-    console.log('[MOCK ARAS KARGO] Kargo kaydi olusturuluyor:', data.orderNumber)
-    console.log('  - Alici:', data.receiverName)
-    console.log('  - Adres:', data.receiverAddress)
+    if (isDev) {
+      console.log('[MOCK ARAS KARGO] Kargo kaydi olusturuluyor:', data.orderNumber)
+      console.log('  - Alici:', data.receiverName)
+      console.log('  - Adres:', data.receiverAddress)
+    }
 
     // Simulasyon: 1 saniye bekle
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -67,7 +70,7 @@ export async function createShipment(data: ShipmentData): Promise<ShipmentResult
  */
 export async function getTrackingInfo(trackingNo: string): Promise<TrackingInfo> {
   if (USE_MOCK) {
-    console.log('[MOCK ARAS KARGO] Kargo takip sorgusu:', trackingNo)
+    if (isDev) console.log('[MOCK ARAS KARGO] Kargo takip sorgusu:', trackingNo)
 
     const now = new Date()
     const estimatedDelivery = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000) // 2 gun sonra
@@ -107,7 +110,7 @@ export async function getTrackingInfo(trackingNo: string): Promise<TrackingInfo>
  */
 export async function cancelShipment(trackingNo: string): Promise<{ success: boolean; message?: string }> {
   if (USE_MOCK) {
-    console.log('[MOCK ARAS KARGO] Kargo iptali:', trackingNo)
+    if (isDev) console.log('[MOCK ARAS KARGO] Kargo iptali:', trackingNo)
 
     await new Promise(resolve => setTimeout(resolve, 500))
 

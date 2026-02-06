@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { processPayment } from '@/lib/iyzico'
-import { sendEmail } from '@/lib/email'
+import { sendPaymentConfirmation } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
+import { logAction } from '@/lib/logger'
 
 export async function POST(request: Request) {
   try {
@@ -89,13 +90,22 @@ export async function POST(request: Request) {
       }
     })
 
-    // Bildirimler gonder (mock)
+    // Log kaydet
+    await logAction({
+      action: 'PAYMENT_PROCESSED',
+      entity: 'ORDER',
+      entityId: order.id,
+      details: { orderNumber: order.orderNumber, paymentId, amount: Number(order.totalAmount) }
+    })
+
+    // Bildirimler gonder
     try {
       await Promise.all([
-        order.email ? sendEmail({
-          to: order.email,
-          subject: `Siparis Onayi - ${order.orderNumber}`,
-          body: `Sayin ${order.parentName}, ${order.orderNumber} numarali siparisini aldik. Odemeniz basariyla tamamlandi.`
+        order.email ? sendPaymentConfirmation({
+          email: order.email,
+          orderNumber: order.orderNumber,
+          parentName: order.parentName,
+          totalAmount: Number(order.totalAmount)
         }) : Promise.resolve(),
         sendSMS({
           to: order.phone,

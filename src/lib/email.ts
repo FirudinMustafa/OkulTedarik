@@ -18,6 +18,7 @@ export interface EmailResult {
 }
 
 const USE_MOCK = process.env.USE_MOCK_EMAIL !== 'false'
+const isDev = process.env.NODE_ENV !== 'production'
 const RESEND_API_KEY = process.env.RESEND_API_KEY || ''
 const EMAIL_FROM = process.env.EMAIL_FROM || 'onboarding@resend.dev'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -65,10 +66,12 @@ export async function sendEmail(data: { to: string; subject: string; body: strin
 
 async function sendEmailInternal(data: EmailData): Promise<EmailResult> {
   if (USE_MOCK) {
-    console.log('[MOCK EMAIL] ===============================')
-    console.log(`[MOCK EMAIL] To: ${data.to}`)
-    console.log(`[MOCK EMAIL] Subject: ${data.subject}`)
-    console.log('[MOCK EMAIL] ===============================')
+    if (isDev) {
+      console.log('[MOCK EMAIL] ===============================')
+      console.log(`[MOCK EMAIL] To: ${data.to}`)
+      console.log(`[MOCK EMAIL] Subject: ${data.subject}`)
+      console.log('[MOCK EMAIL] ===============================')
+    }
 
     await new Promise(resolve => setTimeout(resolve, 300))
 

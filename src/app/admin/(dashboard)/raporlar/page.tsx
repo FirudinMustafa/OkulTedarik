@@ -43,7 +43,11 @@ export default function RaporlarPage() {
     try {
       const res = await fetch(`/api/admin/reports?period=${period}`, { credentials: 'include' })
       const result = await res.json()
-      setData(result)
+      if (res.ok) {
+        setData(result)
+      } else {
+        console.error("Rapor yuklenemedi:", result.error)
+      }
     } catch (error) {
       console.error("Rapor yuklenemedi:", error)
     } finally {

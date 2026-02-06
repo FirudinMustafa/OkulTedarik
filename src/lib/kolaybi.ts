@@ -30,16 +30,19 @@ export interface InvoiceResult {
 }
 
 const USE_MOCK = process.env.USE_MOCK_INVOICE !== 'false'
+const isDev = process.env.NODE_ENV !== 'production'
 
 /**
  * E-Fatura olustur
  */
 export async function createInvoice(data: InvoiceData): Promise<InvoiceResult> {
   if (USE_MOCK) {
-    console.log('[MOCK KOLAYBI] E-Fatura olusturuluyor:', data.orderNumber)
-    console.log('  - Musteri:', data.customerName)
-    console.log('  - Tutar:', data.totalAmount, 'TL')
-    console.log('  - Kurumsal:', data.isCorporate)
+    if (isDev) {
+      console.log('[MOCK KOLAYBI] E-Fatura olusturuluyor:', data.orderNumber)
+      console.log('  - Musteri:', data.customerName)
+      console.log('  - Tutar:', data.totalAmount, 'TL')
+      console.log('  - Kurumsal:', data.isCorporate)
+    }
 
     // Simulasyon: 1.5 saniye bekle
     await new Promise(resolve => setTimeout(resolve, 1500))
@@ -64,7 +67,7 @@ export async function createInvoice(data: InvoiceData): Promise<InvoiceResult> {
  */
 export async function cancelInvoice(invoiceNo: string): Promise<{ success: boolean; message?: string }> {
   if (USE_MOCK) {
-    console.log('[MOCK KOLAYBI] E-Fatura iptal ediliyor:', invoiceNo)
+    if (isDev) console.log('[MOCK KOLAYBI] E-Fatura iptal ediliyor:', invoiceNo)
 
     await new Promise(resolve => setTimeout(resolve, 1000))
 
@@ -83,7 +86,7 @@ export async function cancelInvoice(invoiceNo: string): Promise<{ success: boole
  */
 export async function getInvoiceStatus(invoiceNo: string): Promise<{ status: string; message?: string }> {
   if (USE_MOCK) {
-    console.log('[MOCK KOLAYBI] Fatura durumu sorgusu:', invoiceNo)
+    if (isDev) console.log('[MOCK KOLAYBI] Fatura durumu sorgusu:', invoiceNo)
 
     return {
       status: 'APPROVED',

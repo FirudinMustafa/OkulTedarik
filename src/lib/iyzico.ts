@@ -38,13 +38,14 @@ export interface RefundResult {
 }
 
 const USE_MOCK = process.env.USE_MOCK_PAYMENT !== 'false'
+const isDev = process.env.NODE_ENV !== 'production'
 
 /**
  * Odeme baslat
  */
 export async function initializePayment(data: PaymentInitializeData): Promise<PaymentResult> {
   if (USE_MOCK) {
-    console.log('[MOCK IYZICO] Odeme baslatiliyor:', data.orderNumber, data.amount, 'TL')
+    if (isDev) console.log('[MOCK IYZICO] Odeme baslatiliyor:', data.orderNumber, data.amount, 'TL')
 
     // Simulasyon: 1 saniye bekle
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -67,7 +68,7 @@ export async function initializePayment(data: PaymentInitializeData): Promise<Pa
  */
 export async function verifyPayment(token: string): Promise<PaymentVerifyResult> {
   if (USE_MOCK) {
-    console.log('[MOCK IYZICO] Odeme dogrulaniyor:', token)
+    if (isDev) console.log('[MOCK IYZICO] Odeme dogrulaniyor:', token)
 
     // Simulasyon: 500ms bekle
     await new Promise(resolve => setTimeout(resolve, 500))
@@ -92,7 +93,7 @@ export async function verifyPayment(token: string): Promise<PaymentVerifyResult>
  */
 export async function refundPayment(paymentId: string, amount: number): Promise<RefundResult> {
   if (USE_MOCK) {
-    console.log('[MOCK IYZICO] Iade islemi:', paymentId, amount, 'TL')
+    if (isDev) console.log('[MOCK IYZICO] Iade islemi:', paymentId, amount, 'TL')
 
     // Simulasyon: 1 saniye bekle
     await new Promise(resolve => setTimeout(resolve, 1000))
@@ -113,7 +114,7 @@ export async function refundPayment(paymentId: string, amount: number): Promise<
  */
 export async function handle3DCallback(callbackData: Record<string, string>): Promise<PaymentVerifyResult> {
   if (USE_MOCK) {
-    console.log('[MOCK IYZICO] 3D Callback:', callbackData)
+    if (isDev) console.log('[MOCK IYZICO] 3D Callback:', callbackData)
 
     // Simulasyon
     const status = callbackData.status || 'success'
@@ -154,7 +155,7 @@ export interface ProcessPaymentResult {
 
 export async function processPayment(data: ProcessPaymentData): Promise<ProcessPaymentResult> {
   if (USE_MOCK) {
-    console.log('[MOCK IYZICO] Odeme isleniyor:', data.orderNumber, data.amount, 'TL')
+    if (isDev) console.log('[MOCK IYZICO] Odeme isleniyor:', data.orderNumber, data.amount, 'TL')
 
     // Simulasyon: 1.5 saniye bekle
     await new Promise(resolve => setTimeout(resolve, 1500))
@@ -183,7 +184,7 @@ export interface RefundData {
 }
 
 export async function processRefund(data: RefundData): Promise<RefundResult> {
-  console.log('[MOCK IYZICO] Iade isleniyor:', data.paymentId, data.amount, 'TL')
+  if (isDev) console.log('[MOCK IYZICO] Iade isleniyor:', data.paymentId, data.amount, 'TL')
 
   // Simulasyon: 1 saniye bekle
   await new Promise(resolve => setTimeout(resolve, 1000))
